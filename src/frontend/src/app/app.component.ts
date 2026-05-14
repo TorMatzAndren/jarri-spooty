@@ -30,7 +30,21 @@ export class AppComponent {
     private readonly playlistService: PlaylistService,
     private readonly versionService: VersionService,
   ) {
+    this.bootstrapAuthTokenFromUrl();
     this.fetchPlaylists();
+  }
+
+  private bootstrapAuthTokenFromUrl(): void {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('token');
+
+    if (!token) {
+      return;
+    }
+
+    localStorage.setItem('spooty_auth_token', token);
+    url.searchParams.delete('token');
+    window.history.replaceState({}, document.title, url.toString());
   }
 
   fetchPlaylists(): void {
