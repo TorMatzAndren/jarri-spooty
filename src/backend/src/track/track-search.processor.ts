@@ -4,8 +4,18 @@ import { Job } from 'bullmq';
 import { TrackService } from './track.service';
 import { TrackEntity } from './track.entity';
 
+function getSearchDelayMs(): number {
+  const parsed = Number(process.env.YT_SEARCH_DELAY_MS || 5000);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 5000;
+  }
+
+  return Math.max(1000, Math.min(30000, Math.floor(parsed)));
+}
+
 @Processor('track-search-processor', {
-  concurrency: 2,
+  concurrency: 1,
 })
 export class TrackSearchProcessor extends WorkerHost {
   private readonly logger = new Logger(TrackSearchProcessor.name);
@@ -14,13 +24,14 @@ export class TrackSearchProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<TrackEntity, void, string>): Promise<void> {
-    if (!job.data?.id) {
-      this.logger.warn(`Skipping malformed search job ${job.id}`);
-      return;
-    }
+  async process(job: Job<{ id: number }, void, string>): Promise<void> {
+    const delayMs = getSearchDelayMs();
 
-    this.logger.debug(`Processing search job ${job.id} for track ${job.data.id}`);
-    await this.trackService.findOnYoutube(job.data);
+    this.logger.debug(
+      `Processing search job ${job.id} for track ${job.data.id}; pacing ${delayMs}ms`,
+    );
+
+    await new Promise((res) => setTimeout(res, delayMs));
+    await this.trackService.findOnYoutube({ id: job.data.id } as TrackEntity);
   }
 }

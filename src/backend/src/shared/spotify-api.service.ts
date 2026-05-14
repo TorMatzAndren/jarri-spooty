@@ -168,7 +168,7 @@ export class SpotifyApiService {
           );
 
           const response = await fetch(
-            `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=100&fields=items(track(id,name,artists,preview_url,album(images))),next`,
+            `https://api.spotify.com/v1/playlists/${playlistId}/items?offset=${offset}&limit=100&fields=items(track(id,name,artists,preview_url,album(images))),next`,
             {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
