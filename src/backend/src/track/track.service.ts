@@ -199,12 +199,18 @@ export class TrackService {
       const folderName = this.getFolderName(track, track.playlist);
       await this.youtubeService.downloadAndFormat(track, folderName);
       if (coverUrl) {
-        await this.youtubeService.addImage(
-          folderName,
-          coverUrl,
-          track.name,
-          track.artist,
-        );
+        try {
+          await this.youtubeService.addImage(
+            folderName,
+            coverUrl,
+            track.name,
+            track.artist,
+          );
+        } catch (imageError) {
+          this.logger.warn(
+            `Cover art embed failed for track ${track.id}: ${toSafeErrorMessage(imageError)}`,
+          );
+        }
       }
     } catch (err) {
       this.logger.error(err);
