@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { resolve } from 'path';
+import { relative, resolve } from 'path';
 import { EnvironmentEnum } from '../environmentEnum';
 
 @Injectable()
@@ -16,13 +16,24 @@ export class UtilsService {
   }
 
   getPlaylistFolderPath(name: string): string {
-    return resolve(
-      this.getRootDownloadsPath(),
-      this.stripFileIllegalChars(name),
+    return this.ensureInsideDownloadsRoot(
+      resolve(this.getRootDownloadsPath(), this.stripFileIllegalChars(name)),
     );
   }
 
+  ensureInsideDownloadsRoot(candidatePath: string): string {
+    const root = this.getRootDownloadsPath();
+    const resolvedCandidate = resolve(candidatePath);
+    const rel = relative(root, resolvedCandidate);
+
+    if (rel === '' || (!rel.startsWith('..') && !resolve(rel).startsWith('/'))) {
+      return resolvedCandidate;
+    }
+
+    throw new Error(`Unsafe path outside downloads root: ${resolvedCandidate}`);
+  }
+
   stripFileIllegalChars(text: string): string {
-    return text.replace(/[/\\?%*:|"<>]/g, '-');
+    return text.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'untitled';
   }
 }

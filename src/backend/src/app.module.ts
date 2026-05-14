@@ -11,6 +11,8 @@ import { PlaylistEntity } from './playlist/playlist.entity';
 import { resolve } from 'path';
 import { EnvironmentEnum } from './environmentEnum';
 import { BullModule } from '@nestjs/bullmq';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from './shared/auth.guard';
 
 @Module({
   imports: [
@@ -59,6 +61,11 @@ import { BullModule } from '@nestjs/bullmq';
     PlaylistModule,
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+  ],
 })
 export class AppModule {}

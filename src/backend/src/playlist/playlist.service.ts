@@ -207,7 +207,7 @@ export class PlaylistService {
 
   private createPlaylistFolderStructure(playlistName: string): void {
     const playlistPath = this.utilsService.getPlaylistFolderPath(playlistName);
-    !fs.existsSync(playlistPath) && fs.mkdirSync(playlistPath);
+    !fs.existsSync(playlistPath) && fs.mkdirSync(playlistPath, { recursive: true });
   }
 
   @Interval(3_600_000)

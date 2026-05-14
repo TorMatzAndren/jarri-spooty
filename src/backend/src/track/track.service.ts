@@ -110,27 +110,25 @@ export class TrackService {
     if (!(await this.get(track.id))) {
       return;
     }
-    if (
-      !track.name ||
-      !track.artist ||
-      !track.playlist
-    ) {
+    if (!track.name || !track.artist || !track.playlist) {
       this.logger.error(
         `Track or playlist field is null or undefined: name=${track.name}, artist=${track.artist}, playlist=${track.playlist ? 'ok' : 'null'}`,
       );
       return;
     }
-    // Use track's own coverUrl if available, otherwise fall back to playlist coverUrl
+
     const coverUrl = track.coverUrl || track.playlist.coverUrl;
     if (!coverUrl) {
       this.logger.warn(
         `No cover art available for track: ${track.artist} - ${track.name}`,
       );
     }
+
     await this.update(track.id, {
       ...track,
       status: TrackStatusEnum.Downloading,
     });
+
     let error: string;
     try {
       const folderName = this.getFolderName(track, track.playlist);
@@ -147,6 +145,7 @@ export class TrackService {
       this.logger.error(err);
       error = String(err);
     }
+
     const updatedTrack = {
       ...track,
       status: error ? TrackStatusEnum.Error : TrackStatusEnum.Completed,
@@ -157,24 +156,27 @@ export class TrackService {
 
   getTrackFileName(track: TrackEntity): string {
     const safeArtist = track.artist || 'unknown_artist';
-    const safeName = (track.name || 'unknown_track').replace('/', '');
+    const safeName = track.name || 'unknown_track';
     const fileName = `${safeArtist} - ${safeName}`;
     return `${this.utilsService.stripFileIllegalChars(fileName)}.${this.configService.get<string>(EnvironmentEnum.FORMAT)}`;
   }
 
   getFolderName(track: TrackEntity, playlist: PlaylistEntity): string {
-    // Individual tracks (isTrack=true) go in root downloads folder, playlists in subfolders
     if (playlist?.isTrack) {
-      return resolve(
-        this.utilsService.getRootDownloadsPath(),
-        this.getTrackFileName(track),
+      return this.utilsService.ensureInsideDownloadsRoot(
+        resolve(
+          this.utilsService.getRootDownloadsPath(),
+          this.getTrackFileName(track),
+        ),
       );
     }
-    
+
     const safePlaylistName = playlist?.name || 'unknown_playlist';
-    return resolve(
-      this.utilsService.getPlaylistFolderPath(safePlaylistName),
-      this.getTrackFileName(track),
+    return this.utilsService.ensureInsideDownloadsRoot(
+      resolve(
+        this.utilsService.getPlaylistFolderPath(safePlaylistName),
+        this.getTrackFileName(track),
+      ),
     );
   }
 }
