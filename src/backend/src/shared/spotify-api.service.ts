@@ -228,7 +228,7 @@ export class SpotifyApiService {
 
   async getTrackMetadata(
     spotifyUrl: string,
-  ): Promise<{ name: string; artist: string; image: string }> {
+  ): Promise<{ name: string; artist: string; image: string; durationMs?: number }> {
     try {
       this.logger.debug(`Getting track metadata for ${spotifyUrl}`);
       const trackId = this.getTrackId(spotifyUrl);
@@ -253,6 +253,7 @@ export class SpotifyApiService {
         name: data.name,
         artist: data.artists.map((a) => a.name).join(', '),
         image: data.album.images[0]?.url || '',
+        durationMs: data.duration_ms,
       };
     } catch (error) {
       this.logger.error(`Failed to get track metadata: ${error.message}`);
@@ -370,6 +371,7 @@ export class SpotifyApiService {
                 artists: any[];
                 preview_url: any;
                 album: { images: any[] };
+                duration_ms?: number;
               };
             }) => {
               if (!item.item) return null;
@@ -380,6 +382,7 @@ export class SpotifyApiService {
                 artist: item.item.artists.map((a) => a.name).join(', '),
                 previewUrl: item.item.preview_url,
                 coverUrl: item.item.album?.images?.[0]?.url || null,
+                durationMs: item.item.duration_ms,
               };
             },
           )

@@ -23,6 +23,13 @@ const ALLOWED_YOUTUBE_HOSTS = new Set([
 
 const BAD_MATCH_TERMS = [
   'live',
+  'ao vivo',
+  'acústico',
+  'acustico',
+  'acoustic',
+  'concert',
+  'festival',
+  'session',
   'cover',
   'karaoke',
   'remix',
@@ -34,6 +41,16 @@ const BAD_MATCH_TERMS = [
   'instrumental',
 ];
 
+const OFFICIALISH_TERMS = [
+  'official audio',
+  'official video',
+  'official music video',
+  'lyric video',
+  'lyrics',
+  'vevo',
+  '- topic',
+];
+
 export interface YoutubeMatch {
   url: string;
   title: string;
@@ -42,22 +59,30 @@ export interface YoutubeMatch {
   reason: string;
 }
 
+interface CandidateScore extends YoutubeMatch {
+  rejected: boolean;
+}
+
 @Injectable()
 export class YoutubeService {
   private readonly logger = new Logger(TrackService.name);
 
   constructor(private readonly configService: ConfigService) {}
 
-  async findBestYoutubeMatch(artist: string, name: string): Promise<YoutubeMatch> {
+  async findBestYoutubeMatch(
+    artist: string,
+    name: string,
+    durationMs?: number,
+  ): Promise<YoutubeMatch> {
     const query = `${artist} - ${name}`;
     this.logger.debug(`Searching ${query} on YT`);
 
     const result = await yts(query);
     const candidates = (result.videos || [])
       .filter((video: any) => !!video?.url && !!video?.title)
-      .slice(0, 10)
-      .map((video: any) => this.scoreCandidate(video, artist, name))
-      .filter((match: YoutubeMatch) => {
+      .slice(0, 15)
+      .map((video: any) => this.scoreCandidate(video, artist, name, durationMs))
+      .filter((match: CandidateScore) => {
         try {
           this.assertValidYoutubeUrl(match.url);
           return true;
@@ -65,70 +90,158 @@ export class YoutubeService {
           return false;
         }
       })
-      .sort((a: YoutubeMatch, b: YoutubeMatch) => {
-        if (b.score !== a.score) {
-          return b.score - a.score;
-        }
-        return a.url.localeCompare(b.url);
-      });
+      .sort((a, b) => b.score - a.score);
 
-    const best = candidates[0];
+    this.logger.debug(
+      `YouTube candidates for "${query}": ` +
+        candidates
+          .slice(0, 5)
+          .map(
+            (c) =>
+              `[${c.score}${c.rejected ? ' rejected' : ''}] ${c.title} by ${c.author} (${c.reason})`,
+          )
+          .join(' | '),
+    );
 
-    if (!best) {
-      throw new Error(`No YouTube result found for: ${query}`);
-    }
+    const accepted = candidates.find((candidate) => !candidate.rejected);
 
-    if (best.score < 40) {
-      throw new Error(
-        `No confident YouTube match for "${query}". Best score: ${best.score} (${best.title})`,
-      );
+    if (!accepted) {
+      throw new Error(`No acceptable YouTube result found for: ${query}`);
     }
 
     this.logger.debug(
-      `Selected YouTube match for "${query}": ${best.title} by ${best.author} (${best.score})`,
+      `Selected YouTube match for "${query}": ${accepted.title} by ${accepted.author} (${accepted.score})`,
     );
 
-    return best;
+    return accepted;
   }
 
-  async findOnYoutubeOne(artist: string, name: string): Promise<string> {
-    return (await this.findBestYoutubeMatch(artist, name)).url;
-  }
-
-  private scoreCandidate(video: any, artist: string, name: string): YoutubeMatch {
+  private scoreCandidate(
+    video: any,
+    artist: string,
+    name: string,
+    durationMs?: number,
+  ): CandidateScore {
     const title = String(video.title || '');
     const author = String(video.author?.name || video.author || '');
-    const haystack = normalize(`${title} ${author}`);
-    const titleScore = tokenOverlap(name, title) * 55;
-    const artistScore = tokenOverlap(artist, `${title} ${author}`) * 35;
+    const url = String(video.url || '');
+    const seconds = this.getVideoSeconds(video);
 
-    let score = titleScore + artistScore;
-    const reasons = [
-      `title=${Math.round(titleScore)}`,
-      `artist=${Math.round(artistScore)}`,
-    ];
+    const normalizedTitle = this.normalize(title);
+    const normalizedAuthor = this.normalize(author);
+    const normalizedArtist = this.normalize(artist);
+    const normalizedName = this.normalize(name);
 
-    for (const term of BAD_MATCH_TERMS) {
-      if (haystack.includes(term)) {
-        score -= 15;
-        reasons.push(`penalty:${term}`);
+    let score = 0;
+    const reasons: string[] = [];
+    let rejected = false;
+
+    if (normalizedTitle.includes(normalizedName)) {
+      score += 45;
+      reasons.push('title=45');
+    }
+
+    for (const artistPart of this.artistParts(normalizedArtist)) {
+      if (artistPart.length >= 3 && (normalizedTitle.includes(artistPart) || normalizedAuthor.includes(artistPart))) {
+        score += 20;
+        reasons.push(`artist=${artistPart}:20`);
+        break;
       }
     }
 
-    if (haystack.includes('official audio') || haystack.includes('topic')) {
-      score += 10;
-      reasons.push('bonus:officialish');
+    const officialish = OFFICIALISH_TERMS.find((term) =>
+      `${normalizedTitle} ${normalizedAuthor}`.includes(this.normalize(term)),
+    );
+    if (officialish) {
+      score += 12;
+      reasons.push(`officialish=${officialish}:12`);
     }
 
-    score = Math.max(0, Math.min(100, Math.round(score)));
+    const badTerm = BAD_MATCH_TERMS.find((term) =>
+      normalizedTitle.includes(this.normalize(term)),
+    );
+    if (badTerm) {
+      score -= 25;
+      reasons.push(`bad=${badTerm}:-25`);
+    }
+
+    if (durationMs && seconds) {
+      const spotifySeconds = Math.round(durationMs / 1000);
+      const diff = Math.abs(seconds - spotifySeconds);
+      const ratio = diff / Math.max(spotifySeconds, 1);
+
+      if (diff <= 8 || ratio <= 0.05) {
+        score += 40;
+        reasons.push(`duration=excellent:${diff}s:+40`);
+      } else if (diff <= 15 || ratio <= 0.10) {
+        score += 30;
+        reasons.push(`duration=good:${diff}s:+30`);
+      } else if (diff <= 30 || ratio <= 0.15) {
+        score += 18;
+        reasons.push(`duration=ok:${diff}s:+18`);
+      } else if (diff <= 45 || ratio <= 0.25) {
+        score += 5;
+        reasons.push(`duration=weak:${diff}s:+5`);
+      } else if (diff > 60 && ratio > 0.40) {
+        score -= 80;
+        rejected = true;
+        reasons.push(`duration=reject:${diff}s:-80`);
+      } else {
+        score -= 35;
+        reasons.push(`duration=bad:${diff}s:-35`);
+      }
+    } else {
+      reasons.push('duration=unknown');
+    }
 
     return {
-      url: String(video.url),
+      url,
       title,
       author,
       score,
       reason: reasons.join(', '),
+      rejected,
     };
+  }
+
+  private normalize(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private artistParts(normalizedArtist: string): string[] {
+    return normalizedArtist
+      .split(/\s+(and|feat|featuring|ft|x|,|with)\s+|,/)
+      .map((part) => part.trim())
+      .filter((part) => part && !['and', 'feat', 'featuring', 'ft', 'x', 'with'].includes(part));
+  }
+
+  private getVideoSeconds(video: any): number | undefined {
+    if (typeof video.seconds === 'number' && Number.isFinite(video.seconds)) {
+      return video.seconds;
+    }
+
+    const timestamp = String(video.timestamp || video.duration || '');
+    const parts = timestamp
+      .split(':')
+      .map((part) => Number(part))
+      .filter((part) => Number.isFinite(part));
+
+    if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+
+    return undefined;
   }
 
   assertValidYoutubeUrl(url: string): void {
@@ -231,39 +344,4 @@ export class YoutubeService {
       folderName,
     );
   }
-}
-
-function normalize(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9åäöüéèàáíóúñ]+/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function tokens(value: string): Set<string> {
-  return new Set(
-    normalize(value)
-      .split(' ')
-      .filter((token) => token.length > 1),
-  );
-}
-
-function tokenOverlap(needle: string, haystack: string): number {
-  const needleTokens = tokens(needle);
-  const haystackTokens = tokens(haystack);
-
-  if (needleTokens.size === 0) {
-    return 0;
-  }
-
-  let matches = 0;
-  for (const token of needleTokens) {
-    if (haystackTokens.has(token)) {
-      matches++;
-    }
-  }
-
-  return matches / needleTokens.size;
 }

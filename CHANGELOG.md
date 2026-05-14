@@ -56,6 +56,27 @@ This project follows a practical chronological changelog rather than autogenerat
 - Added safer default pacing recommendations
 - Improved deployment documentation
 
+## Unreleased
+
+### Added
+- Spotify OAuth login flow
+- Persistent Spotify user token handling
+- Large playlist pagination support (>100 tracks)
+- Deterministic YouTube candidate scoring
+- Duration-aware YouTube matching
+- Detailed YouTube candidate debug logging
+- Improved Docker deployment guidance
+
+### Improved
+- YouTube pacing and throttling resistance
+- Cover art embedding resilience
+- Queue stability during large playlist imports
+
+### Fixed
+- Spotify playlist truncation at 100 tracks
+- Incorrect live/acoustic YouTube selections
+- Playlist retrieval failures on large public playlists
+
 ---
 
 # 2.4.2
