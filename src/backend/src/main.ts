@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import * as fs from 'fs';
 import { resolve } from 'path';
 import { exec } from 'child_process';
+import helmet from 'helmet';
 import { EnvironmentEnum } from './environmentEnum';
 
 function envFlag(name: string): boolean {
@@ -46,6 +47,28 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: false,
+    }),
+  );
+
+  const corsOrigin =
+    process.env[EnvironmentEnum.CORS_ORIGIN] || 'http://localhost:4200';
+
+  app.enableCors({
+    origin: corsOrigin,
+    credentials: false,
+  });
+
+  if (
+    process.env[EnvironmentEnum.NODE_ENV] === 'production' &&
+    !envFlag(EnvironmentEnum.AUTH_ENABLED)
+  ) {
+    console.warn('[SECURITY] AUTH_ENABLED is false while NODE_ENV=production');
+  }
+
   app.setGlobalPrefix('api');
   await app.listen(process.env.PORT || 3000);
 }
