@@ -9,6 +9,12 @@ import type { Request } from 'express';
 @Injectable()
 export class AuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+
+    if (request.path === '/api/health') {
+      return true;
+    }
+
     if (!this.authEnabled()) {
       return true;
     }
@@ -20,7 +26,6 @@ export class AuthGuard implements CanActivate {
       );
     }
 
-    const request = context.switchToHttp().getRequest<Request>();
     const providedToken = this.extractToken(request);
 
     if (providedToken !== expectedToken) {
