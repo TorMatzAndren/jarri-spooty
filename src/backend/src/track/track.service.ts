@@ -99,17 +99,24 @@ export class TrackService {
         error: String(err),
         status: TrackStatusEnum.Error,
       };
+      await this.update(track.id, updatedTrack);
+      return;
     }
+
+    await this.update(track.id, updatedTrack);
     await this.trackDownloadQueue.add('', updatedTrack, {
       jobId: `id-${updatedTrack.id}`,
     });
-    await this.update(track.id, updatedTrack);
   }
 
   async downloadFromYoutube(track: TrackEntity): Promise<void> {
-    if (!(await this.get(track.id))) {
+    const dbTrack = await this.get(track.id);
+    if (!dbTrack) {
       return;
     }
+
+    track = dbTrack;
+
     if (!track.name || !track.artist || !track.playlist) {
       this.logger.error(
         `Track or playlist field is null or undefined: name=${track.name}, artist=${track.artist}, playlist=${track.playlist ? 'ok' : 'null'}`,
