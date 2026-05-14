@@ -12,6 +12,7 @@ import { UtilsService } from '../shared/utils.service';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { YoutubeService } from '../shared/youtube.service';
+import { toSafeErrorMessage } from '../shared/errors/safe-error';
 
 enum WsTrackOperation {
   New = 'trackNew',
@@ -73,7 +74,16 @@ export class TrackService {
 
   async retry(id: number): Promise<void> {
     const track = await this.get(id);
-    await this.trackSearchQueue.add('', track, { jobId: `id-${id}` });
+    const existingJob = await this.trackSearchQueue.getJob(`id-${id}`);
+
+    if (existingJob) {
+      this.logger.warn(`Search job already exists for track ${id}`);
+      return;
+    }
+
+    await this.trackSearchQueue.add('', track, {
+      jobId: `id-${id}`,
+    });
     await this.update(id, { ...track, status: TrackStatusEnum.New });
   }
 
@@ -96,7 +106,7 @@ export class TrackService {
       this.logger.error(err);
       updatedTrack = {
         ...track,
-        error: String(err),
+        error: toSafeErrorMessage(err),
         status: TrackStatusEnum.Error,
       };
       await this.update(track.id, updatedTrack);
@@ -150,7 +160,7 @@ export class TrackService {
       }
     } catch (err) {
       this.logger.error(err);
-      error = String(err);
+      error = toSafeErrorMessage(err);
     }
 
     const updatedTrack = {

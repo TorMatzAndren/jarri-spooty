@@ -10,6 +10,7 @@ import { Interval } from '@nestjs/schedule';
 import { TrackStatusEnum } from '../track/track.entity';
 import { UtilsService } from '../shared/utils.service';
 import { SpotifyService } from '../shared/spotify.service';
+import { toSafeErrorMessage } from '../shared/errors/safe-error';
 
 enum WsPlaylistOperation {
   New = 'playlistNew',
@@ -77,7 +78,11 @@ export class PlaylistService {
       // Don't create folder structure for individual tracks - they go in root
     } catch (err) {
       this.logger.error(`Error getting track details: ${err}`);
-      playlist2Save = { ...playlist, error: String(err), isTrack: true };
+      playlist2Save = {
+        ...playlist,
+        error: toSafeErrorMessage(err),
+        isTrack: true,
+      };
     }
     const savedPlaylist = await this.save(playlist2Save);
 
@@ -117,7 +122,10 @@ export class PlaylistService {
       this.createPlaylistFolderStructure(playlist2Save.name);
     } catch (err) {
       this.logger.error(`Error getting playlist details: ${err}`);
-      playlist2Save = { ...playlist, error: String(err) };
+      playlist2Save = {
+        ...playlist,
+        error: toSafeErrorMessage(err),
+      };
     }
     const savedPlaylist = await this.save(playlist2Save);
 
@@ -224,7 +232,10 @@ export class PlaylistService {
         );
         this.createPlaylistFolderStructure(playlist.name);
       } catch (err) {
-        await this.update(playlist.id, { ...playlist, error: String(err) });
+        await this.update(playlist.id, {
+          ...playlist,
+          error: toSafeErrorMessage(err),
+        });
       }
       for (const track of tracks ?? []) {
         const track2Save = {
