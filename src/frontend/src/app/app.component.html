@@ -6,6 +6,13 @@
       <span class="tag is-dark is-size-7">v{{version}}</span>
     </p>
     <p class="subtitle">Self-hosted spotify downloader</p>
+    <button
+      class="button is-light is-small"
+      [class.is-success]="spotifyConnected"
+      (click)="connectSpotify()"
+    >
+      {{ spotifyConnected ? 'Spotify connected' : 'Connect Spotify' }}
+    </button>
   </div>
 </section>
 

@@ -1,157 +1,370 @@
-[![npm version](https://img.shields.io/docker/pulls/raiper34/spooty)](https://hub.docker.com/r/raiper34/spooty)
-[![npm version](https://img.shields.io/docker/image-size/raiper34/spooty)](https://hub.docker.com/r/raiper34/spooty)
-![Docker Image Version](https://img.shields.io/docker/v/raiper34/spooty)
-[![npm version](https://img.shields.io/docker/stars/raiper34/spooty)](https://hub.docker.com/r/raiper34/spooty)
-[![GitHub License](https://img.shields.io/github/license/raiper34/spooty)](https://github.com/Raiper34/spooty)
-[![GitHub Repo stars](https://img.shields.io/github/stars/raiper34/spooty)](https://github.com/Raiper34/spooty)
+# Spooty Hardened
 
-![spooty logo](assets/logo.svg)
-# Spooty - selfhosted Spotify downloader
-Spooty is a self-hosted Spotify downloader.
-It allows download track/playlist/album from the Spotify url.
-It can also subscribe to a playlist or author page and download new songs upon release.
-Spooty basically downloads nothing from Spotify, it only gets information from spotify and then finds relevant and downloadeds music on Youtube. 
-The project is based on NestJS and Angular.
+Self-hosted Spotify playlist and track downloader built with NestJS + Angular.
 
-> [!IMPORTANT]
-> Please do not use this tool for piracy! Download only music you own rights! Use this tool only on your responsibility.
+Spooty does not download audio from Spotify itself.  
+It retrieves metadata from Spotify and locates matching audio on YouTube.
 
-### Content
-- [🚀 Installation](#-installation)
-  - [Spotify App Configuration](#spotify-app-configuration)
-  - [Docker](#docker)
-    - [Docker command](#docker-command)
-    - [Docker compose](#docker-compose)
-  - [Build from source](#build-from-source)
-    - [Process](#requirements)
-    - [Requirements](#process)
-  - [Environment variables](#environment-variables)
-  - [YouTube cookies](#youtube-cookies)
-- [⚖️ License](#-license)
+This hardened branch focuses on:
 
-## 🚀 Installation
-Recommended and the easiest way how to start to use of Spooty is using docker.
+- Large playlist support (>100 tracks)
+- Spotify OAuth login flow
+- Better YouTube pacing and throttling resistance
+- Improved Docker deployment
+- Safer credential handling
+- More resilient cover-art embedding
+- Better queue stability
 
-### Spotify App Configuration
+---
 
-To fully use Spooty, you need to create an application in the Spotify Developer Dashboard:
+# Features
 
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Sign in with your Spotify account
-3. Create a new application
-4. Note your `Client ID` and `Client Secret`
-5. Configure the redirect URI to `http://127.0.0.1:3000/api/callback` (or the corresponding URL of your instance)
+- Download Spotify playlists
+- Download individual Spotify tracks
+- Playlist auto-subscription support
+- Automatic YouTube matching
+- MP3 tagging and embedded cover art
+- Docker deployment
+- Queue-based download system
+- Spotify OAuth integration
+- Large playlist pagination support
+- Download pacing controls
+- YouTube cookie support
 
-These credentials will be used by Spooty to access the Spotify API.
+---
 
-### Docker
+# Important Notice
 
-Just run docker command or use docker compose configuration.
-For detailed configuration, see available [environment variables](#environment-variables).
+Use this software responsibly.
 
-#### Docker command
-```shell
-docker run -d -p 3000:3000 \
-  -v /path/to/downloads:/spooty/backend/downloads \
-  -v /path/to/cookies.txt:/spooty/config/cookies.txt \
-  -e SPOTIFY_CLIENT_ID=your_client_id \
-  -e SPOTIFY_CLIENT_SECRET=your_client_secret \
-  raiper34/spooty:latest
-```
+Only download music you legally own or are permitted to access.
 
-#### Docker compose
-```yaml
+The maintainers are not responsible for misuse.
+
+---
+
+# Supported URLs
+
+- Spotify playlists
+- Spotify tracks
+
+Example:
+
+    https://open.spotify.com/playlist/...
+    https://open.spotify.com/track/...
+
+---
+
+# Quick Start (Recommended)
+
+## 1. Create Spotify Developer App
+
+Go to:
+
+    https://developer.spotify.com/dashboard
+
+Create an application.
+
+Add this Redirect URI:
+
+    http://127.0.0.1:3000/api/spotify/callback
+
+Copy:
+
+- Client ID
+- Client Secret
+
+---
+
+## 2. Store Credentials Outside Repository
+
+Create a secure env file:
+
+~~~bash
+sudo mkdir -p /etc/tokens
+
+sudo tee /etc/tokens/spotify.env > /dev/null <<'EOF'
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
+EOF
+
+sudo chown root:$USER /etc/tokens/spotify.env
+sudo chmod 640 /etc/tokens/spotify.env
+~~~
+
+Never commit this file.
+
+---
+
+# Docker Run
+
+~~~bash
+docker run --rm -p 3000:3000 \
+  --env-file /etc/tokens/spotify.env \
+  -e SPOTIFY_REDIRECT_URI='http://127.0.0.1:3000/api/spotify/callback' \
+  -e AUTH_ENABLED=true \
+  -e SPOOTY_AUTH_TOKEN=change_this_token \
+  -e YT_SEARCH_DELAY_MS=7000 \
+  -e YT_DOWNLOADS_PER_MINUTE=3 \
+  -v "$PWD/downloads:/spooty/backend/downloads" \
+  spootyfy-hardened:local
+~~~
+
+Open:
+
+    http://127.0.0.1:3000/?token=change_this_token
+
+Then:
+
+1. Click "Connect Spotify"
+2. Login to Spotify
+3. Approve access
+4. Paste playlist URL
+5. Download
+
+---
+
+# Docker Compose
+
+~~~yaml
 services:
   spooty:
-    image: raiper34/spooty:latest
+    image: spootyfy-hardened:local
     container_name: spooty
     restart: unless-stopped
+
     ports:
       - "3000:3000"
-    volumes:
-      - /path/to/downloads:/spooty/backend/downloads
-      - /path/to/cookies.txt:/spooty/config/cookies.txt
+
+    env_file:
+      - /etc/tokens/spotify.env
+
     environment:
-      - SPOTIFY_CLIENT_ID=your_client_id
-      - SPOTIFY_CLIENT_SECRET=your_client_secret
-      # Configure other environment variables if needed
-```
+      SPOTIFY_REDIRECT_URI: "http://127.0.0.1:3000/api/spotify/callback"
+      AUTH_ENABLED: "true"
+      SPOOTY_AUTH_TOKEN: "change_this_token"
 
-### Build from source
+      YT_SEARCH_DELAY_MS: "7000"
+      YT_DOWNLOADS_PER_MINUTE: "3"
 
-Spooty can be also build from source files on your own.
+    volumes:
+      - ./downloads:/spooty/backend/downloads
+~~~
 
-#### Requirements
-- Node v20.20.0 (it is recommended to use `nvm` node version manager to install proper version of node)
-- Redis in memory cache
-- Ffmpeg
+---
+
+# Build From Source
+
+## Requirements
+
+- Node.js 20.20.0
+- Docker
+- ffmpeg
 - Python3
+- Redis
 
-#### Process
-- install Node v20.20.0 using `nvm install` and use that node version `nvm use`
-- from project root install all dependencies using `npm install`
-- copy `.env.default` as `.env` in `src/backend` folder and modify desired environment properties (see [environment variables](#environment-variables))
-- add your Spotify application credentials to the `.env` file:
-  ```
-  SPOTIFY_CLIENT_ID=your_client_id
-  SPOTIFY_CLIENT_SECRET=your_client_secret
-  ```
-- build source files `npm run build`
-    - built project will be stored in `dist` folder
-- start server `npm run start`
+---
 
-### Environment variables
+## Build
 
-Some behaviour and settings of Spooty can be configured using environment variables and `.env` file.
+~~~bash
+npm install
+npm run build
+~~~
 
- Name                    | Default                                     | Description                                                                                                                                                               |
--------------------------|---------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
- DB_PATH                 | `./config/db.sqlite` (relative to backend)  | Path where Spooty database will be stored                                                                                                                                 |
- FE_PATH                 | `../frontend/browser` (relative to backend) | Path to frontend part of application                                                                                                                                      |
- DOWNLOADS_PATH          | `./downloads` (relative to backend)         | Path where downaloded files will be stored                                                                                                                                |
- FORMAT                  | `mp3`                                       | Format of downloaded files ('aac', 'flac', 'mp3', 'm4a', 'opus', 'vorbis', 'wav', 'alac')                                                                                 |
- QUALITY                 | undefined                                   | Audio quality (0-9 VBR or specific bitrate) of downloaded files                                                                                                           |
- PORT                    | 3000                                        | Port of Spooty server                                                                                                                                                     |
- REDIS_PORT              | 6379                                        | Port of Redis server                                                                                                                                                      |
- REDIS_HOST              | localhost                                   | Host of Redis server                                                                                                                                                      |
- RUN_REDIS               | false                                       | Whenever Redis server should be started from backend (recommended for Docker environment)                                                                                 |
- SPOTIFY_CLIENT_ID       | your_client_id                              | Client ID of your Spotify application (required)                                                                                                                          |
- SPOTIFY_CLIENT_SECRET   | your_client_secret                          | Client Secret of your Spotify application (required)                                                                                                                      |
- YT_DOWNLOADS_PER_MINUTE | 3                                           | Set the maximum number of YouTube downloads started per minute                                                                                                            |
- YT_COOKIES              |                                             | Browser name to automatically extract YouTube cookies from (e.g. `chrome`, `firefox`). Only works when running Spooty natively (not in Docker). See [below](#yt_cookies---browser-based-cookies-non-docker). |
- YT_COOKIES_FILE         | `./config/cookies.txt`                      | Path to a Netscape-format `cookies.txt` file. Recommended for Docker deployments. See [below](#yt_cookies_file---cookies-file-recommended-for-docker).                    |
+---
 
-### YouTube cookies
+## Run
 
-YouTube may block or throttle downloads without authentication cookies. Spooty supports two ways to provide them — use the one that fits your setup.
+~~~bash
+npm run start
+~~~
 
-#### `YT_COOKIES` — browser-based cookies (non-Docker)
+---
 
-Set `YT_COOKIES` to the name of your browser and yt-dlp will automatically read cookies directly from it.
-Supported values: `chrome`, `firefox`, `edge`, `safari`, `brave`, `opera`, `chromium`.
+# Environment Variables
 
-```
-YT_COOKIES=chrome
-```
+| Variable | Default | Description |
+|---|---|---|
+| DB_PATH | `./config/db.sqlite` | SQLite database path |
+| DOWNLOADS_PATH | `./downloads` | Download directory |
+| FORMAT | `mp3` | Output format |
+| REDIS_HOST | `localhost` | Redis host |
+| REDIS_PORT | `6379` | Redis port |
+| SPOTIFY_CLIENT_ID | unset | Spotify client ID |
+| SPOTIFY_CLIENT_SECRET | unset | Spotify client secret |
+| SPOTIFY_REDIRECT_URI | unset | OAuth callback URI |
+| AUTH_ENABLED | `false` | Enable frontend token auth |
+| SPOOTY_AUTH_TOKEN | unset | Frontend auth token |
+| YT_SEARCH_DELAY_MS | `5000` | Delay between YouTube searches |
+| YT_DOWNLOADS_PER_MINUTE | `3` | Download pacing |
+| YT_COOKIES | unset | Browser cookie extraction |
+| YT_COOKIES_FILE | unset | Netscape cookies.txt path |
 
-> [!NOTE]
-> This only works when Spooty runs on the same machine as your browser (i.e. not in Docker, where no browser is present).
+---
 
-#### `YT_COOKIES_FILE` — cookies file (recommended for Docker)
+# YouTube Cookies
 
-Export your YouTube cookies as a Netscape `cookies.txt` file and provide its path. This is the recommended approach for Docker deployments.
+YouTube may throttle or block requests without cookies.
 
-**How to get your `cookies.txt` file:**
-1. Install a browser extension that exports cookies in Netscape format, e.g. [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) for Chrome or [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/) for Firefox.
-2. Go to https://www.youtube.com and log in.
-3. Use the extension to export cookies for `youtube.com` and save the file as `cookies.txt`.
+Two supported methods exist.
 
-**Docker usage:**
+---
 
-Bind mount the `cookies.txt` file into the container and set `YT_COOKIES_FILE` to its path inside the container. See the [Environment variables](#environment-variables) section for details.
+## Browser Cookies (Native Install Only)
 
-> [!NOTE]
-> `YT_COOKIES` takes priority over `YT_COOKIES_FILE` if both are set.
+~~~bash
+YT_COOKIES=firefox
+~~~
 
-# ⚖️ License
-[MIT](https://choosealicense.com/licenses/mit/)
+Supported:
+
+- firefox
+- chrome
+- chromium
+- edge
+- brave
+- opera
+
+This does NOT work reliably in Docker.
+
+---
+
+## Cookies File (Recommended)
+
+Export a Netscape-format `cookies.txt`.
+
+Mount into container:
+
+~~~bash
+-v /path/to/cookies.txt:/spooty/config/cookies.txt
+~~~
+
+Then:
+
+~~~bash
+-e YT_COOKIES_FILE=/spooty/config/cookies.txt
+~~~
+
+---
+
+# Large Playlist Support
+
+The hardened branch fixes several Spotify API limitations:
+
+- Proper playlist pagination
+- >100 track playlists
+- OAuth-authenticated playlist access
+- Queue stability improvements
+
+Verified working with playlists containing 300+ tracks.
+
+---
+
+# Queue Pacing
+
+Aggressive YouTube access can trigger:
+
+- HTTP 302 loops
+- CAPTCHA
+- temporary throttling
+- incomplete downloads
+
+Recommended safe pacing:
+
+~~~bash
+-e YT_SEARCH_DELAY_MS=7000
+-e YT_DOWNLOADS_PER_MINUTE=3
+~~~
+
+---
+
+# Security Notes
+
+Never commit:
+
+- Spotify secrets
+- OAuth tokens
+- cookies.txt
+- downloaded music
+- local databases
+
+Recommended `.gitignore` additions:
+
+~~~gitignore
+downloads/
+config/
+*.sqlite
+cookies.txt
+.env
+.env.local
+~~~
+
+---
+
+# Hardened Branch Changelog
+
+## Unreleased Hardened Changes
+
+### Spotify
+
+- Added Spotify OAuth login flow
+- Added persistent Spotify user token storage
+- Added authenticated playlist retrieval
+- Fixed large playlist pagination
+- Fixed playlist truncation at 100 tracks
+- Added playlist retrieval debugging
+- Added OAuth status endpoint
+
+### YouTube
+
+- Added configurable search pacing
+- Added configurable download pacing
+- Reduced aggressive YouTube request bursts
+- Improved queue throttling behavior
+
+### Backend
+
+- Added safer queue pacing logic
+- Added explicit search processor throttling
+- Improved Docker runtime stability
+- Improved logging around Spotify retrieval
+- Added auth bootstrap flow support
+
+### Frontend
+
+- Added Spotify login integration
+- Added frontend auth token bootstrap
+- Fixed playlist progress handling for large playlists
+- Improved playlist rendering stability
+
+### Security
+
+- Moved secrets to external env files
+- Improved Docker secret handling recommendations
+- Added security documentation
+- Prevented accidental secret inclusion in repository
+
+---
+
+# Development Notes
+
+Recommended local test run:
+
+~~~bash
+docker run --rm -p 3000:3000 \
+  --env-file /etc/tokens/spotify.env \
+  -e SPOTIFY_REDIRECT_URI='http://127.0.0.1:3000/api/spotify/callback' \
+  -e AUTH_ENABLED=true \
+  -e SPOOTY_AUTH_TOKEN=test-token \
+  -e YT_SEARCH_DELAY_MS=7000 \
+  -e YT_DOWNLOADS_PER_MINUTE=3 \
+  -v "$PWD/downloads:/spooty/backend/downloads" \
+  spootyfy-hardened:local
+~~~
+
+---
+
+# License
+
+MIT

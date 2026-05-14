@@ -11,7 +11,12 @@ export class AuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
 
-    if (request.path === '/api/health') {
+    if (
+      request.path === '/api/health' ||
+      request.path === '/api/spotify/login' ||
+      request.path === '/api/spotify/callback' ||
+      request.path === '/api/spotify/status'
+    ) {
       return true;
     }
 
