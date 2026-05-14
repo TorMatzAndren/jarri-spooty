@@ -102,11 +102,18 @@ export class TrackService {
     });
     let updatedTrack: TrackEntity;
     try {
-      const youtubeUrl = await this.youtubeService.findOnYoutubeOne(
+      const youtubeMatch = await this.youtubeService.findBestYoutubeMatch(
         track.artist,
         track.name,
       );
-      updatedTrack = { ...track, youtubeUrl, status: TrackStatusEnum.Queued };
+      updatedTrack = {
+        ...track,
+        youtubeUrl: youtubeMatch.url,
+        status: TrackStatusEnum.Queued,
+      };
+      this.logger.debug(
+        `YouTube match for track ${track.id}: ${youtubeMatch.title} by ${youtubeMatch.author} score=${youtubeMatch.score} reason=${youtubeMatch.reason}`,
+      );
     } catch (err) {
       this.logger.error(err);
       updatedTrack = {
