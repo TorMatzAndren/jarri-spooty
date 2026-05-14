@@ -55,7 +55,20 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         defaultJobOptions: {
-          removeOnComplete: true,
+          attempts: 2,
+          backoff: {
+            type: 'exponential',
+            delay: 30_000,
+          },
+          removeOnComplete: {
+            age: 3_600,
+            count: 1_000,
+          },
+          removeOnFail: {
+            age: 86_400,
+            count: 1_000,
+          },
+          timeout: 10 * 60_000,
         },
         connection: {
           host: configService.get<string>(EnvironmentEnum.REDIS_HOST),

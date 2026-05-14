@@ -58,9 +58,7 @@ export class TrackService {
 
   async create(track: TrackEntity, playlist?: PlaylistEntity): Promise<void> {
     const savedTrack = await this.repository.save({ ...track, playlist });
-    await this.trackSearchQueue.add('', savedTrack, {
-      jobId: `id-${savedTrack.id}`,
-    });
+    await this.enqueueSearch(savedTrack.id);
     this.io.emit(WsTrackOperation.New, {
       track: savedTrack,
       playlistId: playlist.id,
@@ -74,23 +72,30 @@ export class TrackService {
 
   async retry(id: number): Promise<void> {
     const track = await this.get(id);
-    const existingJob = await this.trackSearchQueue.getJob(`id-${id}`);
 
-    if (existingJob) {
-      this.logger.warn(`Search job already exists for track ${id}`);
+    if (!track) {
+      this.logger.warn(`Cannot retry missing track ${id}`);
       return;
     }
 
-    await this.trackSearchQueue.add('', track, {
-      jobId: `id-${id}`,
+    await this.enqueueSearch(id);
+    await this.update(id, {
+      ...track,
+      error: null,
+      status: TrackStatusEnum.New,
     });
-    await this.update(id, { ...track, status: TrackStatusEnum.New });
   }
 
   async findOnYoutube(track: TrackEntity): Promise<void> {
-    if (!(await this.get(track.id))) {
+    const dbTrack = await this.get(track.id);
+
+    if (!dbTrack) {
+      this.logger.warn(`Skipping search for missing track ${track.id}`);
       return;
     }
+
+    track = dbTrack;
+
     await this.update(track.id, {
       ...track,
       status: TrackStatusEnum.Searching,
@@ -114,9 +119,45 @@ export class TrackService {
     }
 
     await this.update(track.id, updatedTrack);
-    await this.trackDownloadQueue.add('', updatedTrack, {
-      jobId: `id-${updatedTrack.id}`,
-    });
+    await this.enqueueDownload(updatedTrack.id);
+  }
+
+  private async enqueueSearch(id: number): Promise<void> {
+    const track = await this.get(id);
+
+    if (!track) {
+      this.logger.warn(`Cannot enqueue search for missing track ${id}`);
+      return;
+    }
+
+    const jobId = `search-${id}`;
+    const existingJob = await this.trackSearchQueue.getJob(jobId);
+
+    if (existingJob) {
+      this.logger.warn(`Search job already exists for track ${id}`);
+      return;
+    }
+
+    await this.trackSearchQueue.add('search-track', { id }, { jobId });
+  }
+
+  private async enqueueDownload(id: number): Promise<void> {
+    const track = await this.get(id);
+
+    if (!track) {
+      this.logger.warn(`Cannot enqueue download for missing track ${id}`);
+      return;
+    }
+
+    const jobId = `download-${id}`;
+    const existingJob = await this.trackDownloadQueue.getJob(jobId);
+
+    if (existingJob) {
+      this.logger.warn(`Download job already exists for track ${id}`);
+      return;
+    }
+
+    await this.trackDownloadQueue.add('download-track', { id }, { jobId });
   }
 
   async downloadFromYoutube(track: TrackEntity): Promise<void> {
