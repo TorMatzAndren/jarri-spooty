@@ -26,7 +26,7 @@ export class UtilsService {
     const resolvedCandidate = resolve(candidatePath);
     const rel = relative(root, resolvedCandidate);
 
-    if (rel === '' || (!rel.startsWith('..') && !resolve(rel).startsWith('/'))) {
+    if (rel === '' || (!rel.startsWith('..') && !relative('', rel).startsWith('..'))) {
       return resolvedCandidate;
     }
 
