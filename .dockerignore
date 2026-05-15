@@ -11,3 +11,16 @@ config
 .env.*
 README.md
 assets
+
+# Local runtime/download artifacts
+test-downloads
+downloads
+config
+*.sqlite
+*.sqlite3
+*.db
+*.mp3
+*.m4a
+*.webm
+*.part
+spooty-config

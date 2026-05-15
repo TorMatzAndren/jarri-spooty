@@ -3,9 +3,9 @@ import { TrackEntity } from '../track/track.entity';
 import { EnvironmentEnum } from '../environmentEnum';
 import { TrackService } from '../track/track.service';
 import { ConfigService } from '@nestjs/config';
-import { YtDlp } from 'ytdlp-nodejs';
 import * as yts from 'yt-search';
 import * as fs from 'fs';
+import { spawn } from 'child_process';
 const NodeID3 = require('node-id3');
 
 const HEADERS = {
@@ -73,13 +73,24 @@ export class YoutubeService {
     artist: string,
     name: string,
     durationMs?: number,
+    excludedUrls: string[] = [],
   ): Promise<YoutubeMatch> {
     const query = `${artist} - ${name}`;
     this.logger.debug(`Searching ${query} on YT`);
 
     const result = await yts(query);
+    const excludedVideoIds = new Set(
+      excludedUrls
+        .map((url) => this.getYoutubeVideoId(url))
+        .filter((id): id is string => !!id),
+    );
+
     const candidates = (result.videos || [])
       .filter((video: any) => !!video?.url && !!video?.title)
+      .filter((video: any) => {
+        const videoId = this.getYoutubeVideoId(String(video.url));
+        return !videoId || !excludedVideoIds.has(videoId);
+      })
       .slice(0, 15)
       .map((video: any) => this.scoreCandidate(video, artist, name, durationMs))
       .filter((match: CandidateScore) => {
@@ -106,7 +117,10 @@ export class YoutubeService {
     const accepted = candidates.find((candidate) => !candidate.rejected);
 
     if (!accepted) {
-      throw new Error(`No acceptable YouTube result found for: ${query}`);
+      throw new Error(
+        `No acceptable YouTube result found for: ${query}` +
+          (excludedUrls.length ? ` after excluding ${excludedUrls.length} failed candidate(s)` : ''),
+      );
     }
 
     this.logger.debug(
@@ -244,6 +258,20 @@ export class YoutubeService {
     return undefined;
   }
 
+  private getYoutubeVideoId(url: string): string | null {
+    try {
+      const parsed = new URL(url);
+
+      if (parsed.hostname === 'youtu.be') {
+        return parsed.pathname.replace(/^\//, '') || null;
+      }
+
+      return parsed.searchParams.get('v');
+    } catch {
+      return null;
+    }
+  }
+
   assertValidYoutubeUrl(url: string): void {
     let parsed: URL;
 
@@ -262,25 +290,93 @@ export class YoutubeService {
     }
   }
 
-  private getCookiesOptions(): {
-    cookiesFromBrowser?: string;
-    cookies?: string;
-  } {
-    const cookiesBrowser = this.configService.get<string>(
-      EnvironmentEnum.YT_COOKIES,
-    );
-    if (cookiesBrowser) {
-      this.logger.debug(`Using cookies from browser: ${cookiesBrowser}`);
-      return { cookiesFromBrowser: cookiesBrowser };
-    }
+  private getCookiesFile(): string | null {
     const cookiesFile = this.configService.get<string>(
       EnvironmentEnum.YT_COOKIES_FILE,
     );
+
     if (cookiesFile && fs.existsSync(cookiesFile)) {
       this.logger.debug(`Using cookies file: ${cookiesFile}`);
-      return { cookies: cookiesFile };
+      return cookiesFile;
     }
-    return {};
+
+    return null;
+  }
+
+  private classifyYtDlpError(output: string): string {
+    const text = output || '';
+
+    if (text.includes('Sign in to confirm your age')) {
+      return 'YouTube age-gated: cookies required or invalid';
+    }
+
+    if (text.includes('Only images are available')) {
+      return 'YouTube unavailable: no downloadable audio/video formats';
+    }
+
+    if (text.includes('Requested format is not available')) {
+      return 'YouTube unavailable: requested audio format is not available';
+    }
+
+    if (text.includes('Private video')) {
+      return 'YouTube unavailable: private video';
+    }
+
+    if (text.includes('Video unavailable')) {
+      return 'YouTube unavailable';
+    }
+
+    if (text.includes('Unable to download webpage')) {
+      return 'YouTube unavailable: unable to download webpage';
+    }
+
+    return text.trim().slice(0, 1200) || 'Unknown yt-dlp error';
+  }
+
+  private prepareWritableCookiesFile(cookiesFile: string | null): string | null {
+    if (!cookiesFile) {
+      return null;
+    }
+
+    const tempCookiesFile = `/tmp/jarri-spooty-youtube-${process.pid}.cookies.txt`;
+    fs.copyFileSync(cookiesFile, tempCookiesFile);
+    return tempCookiesFile;
+  }
+
+  private runYtDlp(args: string[]): Promise<void> {
+    return new Promise((resolvePromise, rejectPromise) => {
+      const child = spawn('yt-dlp', args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk.toString();
+      });
+
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        rejectPromise(new Error(`Failed to start yt-dlp: ${error.message}`));
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolvePromise();
+          return;
+        }
+
+        rejectPromise(
+          new Error(
+            `yt-dlp exited with code ${code}: ${this.classifyYtDlpError(stderr || stdout)}`,
+          ),
+        );
+      });
+    });
   }
 
   async downloadAndFormat(track: TrackEntity, output: string): Promise<void> {
@@ -294,18 +390,32 @@ export class YoutubeService {
 
     this.assertValidYoutubeUrl(track.youtubeUrl);
 
-    const ytdlp = new YtDlp();
-    await ytdlp.downloadAudio(
-      track.youtubeUrl,
-      this.configService.get<'m4a'>(EnvironmentEnum.FORMAT),
-      {
-        output,
-        ...this.getCookiesOptions(),
-        headers: HEADERS,
-        jsRuntime: 'node',
-        audioQuality: this.configService.get<string>('QUALITY'),
-      },
-    );
+    const format = this.configService.get<string>(EnvironmentEnum.FORMAT) || 'mp3';
+    const quality = this.configService.get<string>('QUALITY') || '0';
+    const cookiesFile = this.prepareWritableCookiesFile(this.getCookiesFile());
+
+    const args = [
+      '--no-playlist',
+      '--no-cache-dir',
+      '--no-cookies-from-browser',
+      '--extract-audio',
+      '--audio-format',
+      format,
+      '--audio-quality',
+      quality,
+      '--add-header',
+      `User-Agent:${HEADERS['User-Agent']}`,
+      '-o',
+      output,
+    ];
+
+    if (cookiesFile) {
+      args.push('--cookies', cookiesFile);
+    }
+
+    args.push(track.youtubeUrl);
+
+    await this.runYtDlp(args);
 
     this.logger.debug(
       `Downloaded ${track.artist} - ${track.name} to ${output}`,

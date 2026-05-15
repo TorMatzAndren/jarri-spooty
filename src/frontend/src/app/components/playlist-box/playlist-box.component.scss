@@ -2,19 +2,73 @@
   display: none;
 }
 
-.panel-heading {
-  padding: 5px 10px;
-  border-radius: 10px;
+.playlist-card {
+  margin: 8px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.playlist-heading {
+  padding: 8px 12px;
+  border-radius: 0;
+  cursor: pointer;
 
   &:hover .hover-icon {
     display: inline;
   }
-
-  &:hover .hover-icon-reversed {
-    display: none;
-  }
 }
 
-.panel {
-  margin: 5px 0;
+.playlist-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.history-label {
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.16);
+  padding: 2px 7px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.playlist-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+
+.progress-text {
+  font-weight: 700;
+}
+
+.error-count {
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: #ff3860;
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.progress-shell {
+  height: 7px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1db954, #48f59b);
+  transition: width 180ms ease-out;
+}
+
+.progress-caption {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 5px 12px 8px;
+  color: #667;
+  font-size: 0.78rem;
 }

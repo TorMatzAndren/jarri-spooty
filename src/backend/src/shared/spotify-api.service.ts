@@ -60,6 +60,30 @@ export class SpotifyApiService {
     }
   }
 
+  isArtistUrl(url: string): boolean {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.pathname.includes('/artist/');
+    } catch {
+      return false;
+    }
+  }
+
+  private getArtistId(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      const artistIndex = pathParts.findIndex((part) => part === 'artist');
+      if (artistIndex >= 0 && pathParts.length > artistIndex + 1) {
+        return pathParts[artistIndex + 1].split('?')[0];
+      }
+      throw new Error('Invalid Spotify artist URL');
+    } catch (error) {
+      this.logger.error(`Failed to extract artist ID: ${error.message}`);
+      throw error;
+    }
+  }
+
   private getClientId(): string {
     const clientId = process.env.SPOTIFY_CLIENT_ID;
     if (!clientId) {
@@ -412,4 +436,196 @@ export class SpotifyApiService {
       throw error;
     }
   }
+
+  async getArtistLibrary(
+    spotifyUrl: string,
+  ): Promise<{ name: string; image: string; tracks: any[] }> {
+    try {
+      this.logger.debug(`Getting artist library for ${spotifyUrl}`);
+      const artistId = this.getArtistId(spotifyUrl);
+      const accessToken = await this.getUserAccessToken();
+
+      const artistResponse = await fetch(
+        `https://api.spotify.com/v1/artists/${artistId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!artistResponse.ok) {
+        const errorText = await artistResponse.text();
+        throw new Error(`Failed to fetch artist metadata: ${artistResponse.status} ${errorText}`);
+      }
+
+      const artist = await artistResponse.json();
+      const albums = await this.getAllArtistAlbums(artistId, accessToken);
+      const tracks = await this.getTracksForAlbums(albums, accessToken, artist.name);
+
+      return {
+        name: `Artist Library: ${artist.name}`,
+        image: artist.images?.[0]?.url || '',
+        tracks,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get artist library: ${error.message}`);
+      throw error;
+    }
+  }
+
+  private async getAllArtistAlbums(artistId: string, accessToken: string): Promise<any[]> {
+    const includeGroups = process.env.SPOTIFY_ARTIST_INCLUDE_GROUPS || 'album,single';
+    const albumByKey = new Map<string, any>();
+    const artistAlbumPageLimit = 20;
+    let offset = 0;
+    let hasMoreAlbums = true;
+
+    while (hasMoreAlbums) {
+      this.logger.debug(
+        `Fetching artist albums from Spotify API with offset ${offset}`,
+      );
+
+      const albumUrl = new URL(
+        `https://api.spotify.com/v1/artists/${artistId}/albums`,
+      );
+      albumUrl.searchParams.set('include_groups', includeGroups);
+      albumUrl.searchParams.set('offset', String(offset));
+
+      this.logger.debug(`Spotify artist albums URL: ${albumUrl.toString()}`);
+
+      const response = await fetch(albumUrl.toString(), {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch artist albums: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      for (const album of data.items || []) {
+        const key = this.normalizeLibraryKey(`${album.name}|${album.release_date}|${album.total_tracks}`);
+        if (!albumByKey.has(key)) {
+          albumByKey.set(key, album);
+        }
+      }
+
+      if (!data.next) {
+        hasMoreAlbums = false;
+      } else {
+        offset += artistAlbumPageLimit;
+      }
+    }
+
+    const albums = [...albumByKey.values()];
+    this.logger.debug(`Retrieved ${albums.length} deduplicated artist albums/singles`);
+    return albums;
+  }
+
+  private async getTracksForAlbums(
+    albums: any[],
+    accessToken: string,
+    artistName: string,
+  ): Promise<any[]> {
+    const trackByKey = new Map<string, any>();
+    const maxTracks = Number(process.env.SPOTIFY_ARTIST_LIBRARY_MAX_TRACKS || 1000);
+
+    for (const album of albums) {
+      let offset = 0;
+      let hasMoreTracks = true;
+
+      while (hasMoreTracks) {
+        const response = await fetch(
+          `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=50&offset=${offset}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch album tracks: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        for (const item of data.items || []) {
+          if (!item?.name || !item?.artists?.length) {
+            continue;
+          }
+
+          const fullTrack = await this.getTrackById(item.id, accessToken);
+          const isrc = fullTrack?.external_ids?.isrc;
+          const durationMs = fullTrack?.duration_ms || item.duration_ms;
+          const artist = item.artists.map((a) => a.name).join(', ');
+          const key = isrc
+            ? `isrc:${isrc}`
+            : this.normalizeLibraryKey(`${artist}|${item.name}|${Math.round((durationMs || 0) / 2000)}`);
+
+          if (!trackByKey.has(key)) {
+            trackByKey.set(key, {
+              id: item.id,
+              name: item.name,
+              artist,
+              previewUrl: item.external_urls?.spotify || null,
+              coverUrl: album.images?.[0]?.url || null,
+              durationMs,
+              albumName: album.name,
+              primaryArtist: artistName,
+            });
+          }
+
+          if (trackByKey.size >= maxTracks) {
+            this.logger.warn(`Artist library max track limit reached: ${maxTracks}`);
+            return [...trackByKey.values()];
+          }
+        }
+
+        if (!data.next) {
+          hasMoreTracks = false;
+        } else {
+          offset += 50;
+        }
+      }
+    }
+
+    const tracks = [...trackByKey.values()];
+    this.logger.debug(`Retrieved ${tracks.length} deduplicated artist library tracks`);
+    return tracks;
+  }
+
+  private async getTrackById(trackId: string, accessToken: string): Promise<any> {
+    const response = await fetch(
+      `https://api.spotify.com/v1/tracks/${trackId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return response.json();
+  }
+
+  private normalizeLibraryKey(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
 }

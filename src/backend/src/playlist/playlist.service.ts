@@ -51,9 +51,12 @@ export class PlaylistService {
   async create(playlist: PlaylistEntity): Promise<void> {
     // Detect if URL is for a single track or a playlist and route accordingly
     const isTrack = this.spotifyService.isTrackUrl(playlist.spotifyUrl);
+    const isArtist = this.spotifyService.isArtistUrl(playlist.spotifyUrl);
 
     if (isTrack) {
       await this.createSingleTrack(playlist);
+    } else if (isArtist) {
+      await this.createArtistLibrary(playlist);
     } else {
       await this.createPlaylist(playlist);
     }
@@ -103,6 +106,107 @@ export class PlaylistService {
         );
       }
     }
+  }
+
+
+  private async createArtistLibrary(playlist: PlaylistEntity): Promise<void> {
+    let detail: { tracks: any[]; name: string; image: string };
+    let playlist2Save: PlaylistEntity;
+
+    try {
+      detail = await this.spotifyService.getArtistLibrary(playlist.spotifyUrl);
+      this.logger.debug(
+        `Artist library retrieved with ${detail.tracks?.length || 0} tracks`,
+      );
+
+      playlist2Save = {
+        ...playlist,
+        name: detail.name,
+        coverUrl: detail.image,
+        active: false,
+      };
+      this.createPlaylistFolderStructure(playlist2Save.name);
+    } catch (err) {
+      this.logger.error(`Error getting artist library details: ${err}`);
+      playlist2Save = {
+        ...playlist,
+        name: 'Failed artist library import',
+        error: toSafeErrorMessage(err),
+        active: false,
+      };
+    }
+
+    const savedPlaylist = await this.save(playlist2Save);
+
+    if (detail?.tracks && detail.tracks.length > 0) {
+      await this.createTracksForSavedPlaylist(detail.tracks, savedPlaylist);
+    } else {
+      this.logger.warn(`No tracks found for artist library ${savedPlaylist.name}`);
+    }
+  }
+
+  private async createTracksForSavedPlaylist(
+    tracks: any[],
+    savedPlaylist: PlaylistEntity,
+  ): Promise<void> {
+    this.logger.debug(
+      `Starting to process ${tracks.length} tracks for ${savedPlaylist.name}`,
+    );
+
+    let processedCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
+    for (const track of tracks) {
+      try {
+        if (!track.artist || !track.name) {
+          this.logger.warn(
+            `Skipping track ${processedCount + skippedCount + 1}: Missing artist or name information`,
+          );
+          skippedCount++;
+          continue;
+        }
+
+        if (track.unavailable === true) {
+          this.logger.warn(
+            `Skipping unavailable track ${processedCount + skippedCount + 1}: ${track.artist} - ${track.name}`,
+          );
+          skippedCount++;
+          continue;
+        }
+
+        await this.trackService.create(
+          {
+            artist: track.artist,
+            name: track.name,
+            spotifyUrl: track.previewUrl || null,
+            coverUrl: track.coverUrl || savedPlaylist.coverUrl,
+            durationMs: track.durationMs,
+          },
+          savedPlaylist,
+        );
+
+        processedCount++;
+
+        if (processedCount % 100 === 0) {
+          this.logger.debug(
+            `Processed ${processedCount} tracks so far for ${savedPlaylist.name}`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Error creating track "${
+            track?.artist || 'Unknown'
+          } - ${track?.name || 'Unknown'}": ${error.message}`,
+        );
+        errorCount++;
+      }
+    }
+
+    this.logger.debug(
+      `Finished processing ${savedPlaylist.name}: ` +
+        `${processedCount} tracks processed, ${skippedCount} skipped, ${errorCount} errors`,
+    );
   }
 
   private async createPlaylist(playlist: PlaylistEntity): Promise<void> {
@@ -162,6 +266,7 @@ export class PlaylistService {
               name: track.name,
               spotifyUrl: track.previewUrl || null,
               coverUrl: track.coverUrl || savedPlaylist.coverUrl, // Use track's album art, fallback to playlist cover
+              durationMs: track.durationMs,
             },
             savedPlaylist,
           );

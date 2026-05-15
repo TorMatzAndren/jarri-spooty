@@ -2,7 +2,7 @@ import {Component, Input} from '@angular/core';
 import {AsyncPipe, CommonModule, NgIf} from "@angular/common";
 import {TrackListComponent} from "../track-list/track-list.component";
 import {PlaylistService, PlaylistStatusEnum, PlaylistUi} from "../../services/playlist.service";
-import {Observable, map} from "rxjs";
+import {Observable, combineLatest, map} from "rxjs";
 import {Playlist} from "../../models/playlist";
 
 const STATUS2CLASS = {
@@ -14,15 +14,15 @@ const STATUS2CLASS = {
 }
 
 @Component({
-    selector: 'app-playlist-box',
-    imports: [
-        CommonModule,
-        AsyncPipe,
-        NgIf,
-        TrackListComponent
-    ],
-    templateUrl: './playlist-box.component.html',
-    styleUrl: './playlist-box.component.scss',
+  selector: 'app-playlist-box',
+  imports: [
+    CommonModule,
+    AsyncPipe,
+    NgIf,
+    TrackListComponent
+  ],
+  templateUrl: './playlist-box.component.html',
+  styleUrl: './playlist-box.component.scss',
   standalone: true
 })
 export class PlaylistBoxComponent {
@@ -31,16 +31,27 @@ export class PlaylistBoxComponent {
     this._playlist = val;
     this.trackCount$ = this.service.getTrackCount(val.id);
     this.trackCompletedCount$ = this.service.getCompletedTrackCount(val.id);
+    this.trackErrorCount$ = this.service.getErrorTrackCount(val.id);
+    this.progressPercent$ = combineLatest([
+      this.trackCompletedCount$,
+      this.trackCount$,
+    ]).pipe(
+      map(([completed, total]) => total ? Math.round((completed / total) * 100) : 0)
+    );
     this.statusClass$ = this.service.getStatus$(val.id).pipe(
       map(status => STATUS2CLASS[status])
     );
   }
+
   get playlist(): Playlist & PlaylistUi {
     return this._playlist;
   }
+
   _playlist!: Playlist & PlaylistUi;
   trackCount$!: Observable<number>;
   trackCompletedCount$!: Observable<number>;
+  trackErrorCount$!: Observable<number>;
+  progressPercent$!: Observable<number>;
   statusClass$!: Observable<string>;
 
   constructor(private readonly service: PlaylistService) { }

@@ -70,6 +70,23 @@ export class TrackService {
     this.io.emit(WsTrackOperation.Update, track);
   }
 
+  private parseRejectedYoutubeUrls(track: TrackEntity): string[] {
+    if (!track.rejectedYoutubeUrls) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(track.rejectedYoutubeUrls);
+      return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private stringifyRejectedYoutubeUrls(urls: string[]): string {
+    return JSON.stringify([...new Set(urls)].slice(0, 20));
+  }
+
   async retry(id: number): Promise<void> {
     const track = await this.get(id);
 
@@ -78,12 +95,22 @@ export class TrackService {
       return;
     }
 
-    await this.enqueueSearch(id);
+    const rejectedUrls = this.parseRejectedYoutubeUrls(track);
+
+    if (track.youtubeUrl && !rejectedUrls.includes(track.youtubeUrl)) {
+      rejectedUrls.push(track.youtubeUrl);
+    }
+
     await this.update(id, {
       ...track,
+      youtubeUrl: null,
+      rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
+      downloadAttemptCount: 0,
       error: null,
       status: TrackStatusEnum.New,
     });
+
+    await this.enqueueSearch(id);
   }
 
   async findOnYoutube(track: TrackEntity): Promise<void> {
@@ -102,9 +129,13 @@ export class TrackService {
     });
     let updatedTrack: TrackEntity;
     try {
+      const rejectedUrls = this.parseRejectedYoutubeUrls(track);
+
       const youtubeMatch = await this.youtubeService.findBestYoutubeMatch(
         track.artist,
         track.name,
+        track.durationMs,
+        rejectedUrls,
       );
       updatedTrack = {
         ...track,
@@ -141,8 +172,8 @@ export class TrackService {
     const existingJob = await this.trackSearchQueue.getJob(jobId);
 
     if (existingJob) {
-      this.logger.warn(`Search job already exists for track ${id}`);
-      return;
+      this.logger.warn(`Removing existing search job for track ${id} before enqueue`);
+      await existingJob.remove();
     }
 
     await this.trackSearchQueue.add('search-track', { id }, { jobId });
@@ -160,11 +191,21 @@ export class TrackService {
     const existingJob = await this.trackDownloadQueue.getJob(jobId);
 
     if (existingJob) {
-      this.logger.warn(`Download job already exists for track ${id}`);
-      return;
+      this.logger.warn(`Removing existing download job for track ${id} before enqueue`);
+      await existingJob.remove();
     }
 
     await this.trackDownloadQueue.add('download-track', { id }, { jobId });
+  }
+
+  private getMaxDownloadAttempts(): number {
+    const parsed = Number(process.env.YT_DOWNLOAD_FALLBACK_ATTEMPTS || 3);
+
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return 3;
+    }
+
+    return Math.max(1, Math.min(10, Math.floor(parsed)));
   }
 
   async downloadFromYoutube(track: TrackEntity): Promise<void> {
@@ -217,10 +258,39 @@ export class TrackService {
       error = toSafeErrorMessage(err);
     }
 
+    const rejectedUrls = this.parseRejectedYoutubeUrls(track);
+    const nextAttemptCount = (track.downloadAttemptCount || 0) + 1;
+    const maxAttempts = this.getMaxDownloadAttempts();
+
+    if (error && track.youtubeUrl && !rejectedUrls.includes(track.youtubeUrl)) {
+      rejectedUrls.push(track.youtubeUrl);
+    }
+
+    if (error && nextAttemptCount < maxAttempts) {
+      this.logger.warn(
+        `Download failed for track ${track.id}; rejecting current YouTube candidate and retrying search ` +
+          `(${nextAttemptCount}/${maxAttempts})`,
+      );
+
+      await this.update(track.id, {
+        ...track,
+        youtubeUrl: null,
+        rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
+        downloadAttemptCount: nextAttemptCount,
+        error: null,
+        status: TrackStatusEnum.New,
+      });
+
+      await this.enqueueSearch(track.id);
+      return;
+    }
+
     const updatedTrack = {
       ...track,
       status: error ? TrackStatusEnum.Error : TrackStatusEnum.Completed,
-      ...(error ? { error } : {}),
+      rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
+      downloadAttemptCount: error ? nextAttemptCount : 0,
+      ...(error ? { error } : { error: null }),
     };
     await this.update(track.id, updatedTrack);
   }

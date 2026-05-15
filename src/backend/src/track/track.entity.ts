@@ -27,6 +27,12 @@ export class TrackEntity {
   @Column({ nullable: true })
   youtubeUrl?: string;
 
+  @Column({ nullable: true, type: 'text' })
+  rejectedYoutubeUrls?: string;
+
+  @Column({ default: 0 })
+  downloadAttemptCount?: number;
+
   @Column({ default: TrackStatusEnum.New })
   status?: TrackStatusEnum;
 

@@ -7,7 +7,7 @@ RUN npm run build
 FROM node:20.20.0-alpine
 WORKDIR /spooty
 
-RUN apk add --no-cache ffmpeg redis python3 py3-pip curl \
+RUN apk add --no-cache ffmpeg redis python3 py3-pip curl yt-dlp \
   && addgroup -S spooty \
   && adduser -S spooty -G spooty
 

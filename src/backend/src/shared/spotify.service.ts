@@ -16,6 +16,10 @@ export class SpotifyService {
     return this.spotifyApiService.isTrackUrl(url);
   }
 
+  isArtistUrl(url: string): boolean {
+    return this.spotifyApiService.isArtistUrl(url);
+  }
+
   async getTrackDetail(
     spotifyUrl: string,
   ): Promise<{ name: string; artist: string; image: string }> {
@@ -59,6 +63,13 @@ export class SpotifyService {
         image: detail.preview.image,
       };
     }
+  }
+
+  async getArtistLibrary(
+    spotifyUrl: string,
+  ): Promise<{ name: string; tracks: any[]; image: string }> {
+    this.logger.debug(`Get artist library ${spotifyUrl} on Spotify`);
+    return this.spotifyApiService.getArtistLibrary(spotifyUrl);
   }
 
   async getPlaylistTracks(spotifyUrl: string): Promise<any[]> {
