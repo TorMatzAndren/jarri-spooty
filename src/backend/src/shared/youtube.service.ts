@@ -3,7 +3,6 @@ import { TrackEntity } from '../track/track.entity';
 import { EnvironmentEnum } from '../environmentEnum';
 import { TrackService } from '../track/track.service';
 import { ConfigService } from '@nestjs/config';
-import * as yts from 'yt-search';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
 const NodeID3 = require('node-id3');
@@ -63,6 +62,16 @@ interface CandidateScore extends YoutubeMatch {
   rejected: boolean;
 }
 
+interface YtDlpSearchVideo {
+  url?: string;
+  webpage_url?: string;
+  id?: string;
+  title?: string;
+  uploader?: string;
+  channel?: string;
+  duration?: number;
+}
+
 @Injectable()
 export class YoutubeService {
   private readonly logger = new Logger(TrackService.name);
@@ -78,14 +87,14 @@ export class YoutubeService {
     const query = `${artist} - ${name}`;
     this.logger.debug(`Searching ${query} on YT`);
 
-    const result = await yts(query);
+    const videos = await this.searchYoutubeVideos(query);
     const excludedVideoIds = new Set(
       excludedUrls
         .map((url) => this.getYoutubeVideoId(url))
         .filter((id): id is string => !!id),
     );
 
-    const candidates = (result.videos || [])
+    const candidates = videos
       .filter((video: any) => !!video?.url && !!video?.title)
       .filter((video: any) => {
         const videoId = this.getYoutubeVideoId(String(video.url));
@@ -128,6 +137,55 @@ export class YoutubeService {
     );
 
     return accepted;
+  }
+
+  private async searchYoutubeVideos(query: string): Promise<YtDlpSearchVideo[]> {
+    const searchTarget = `ytsearch15:${query}`;
+    const args = [
+      '--dump-single-json',
+      '--flat-playlist',
+      '--skip-download',
+      '--no-playlist',
+      '--no-cache-dir',
+      '--no-cookies-from-browser',
+      '--add-header',
+      `User-Agent:${HEADERS['User-Agent']}`,
+      searchTarget,
+    ];
+
+    const output = await this.runYtDlpForOutput(args);
+    let parsed: any;
+
+    try {
+      parsed = JSON.parse(output);
+    } catch (error) {
+      throw new Error(`Failed to parse yt-dlp search output: ${(error as Error).message}`);
+    }
+
+    const entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
+    return entries
+      .filter((entry: YtDlpSearchVideo) => !!entry?.title && (!!entry?.url || !!entry?.webpage_url || !!entry?.id))
+      .map((entry: YtDlpSearchVideo) => ({
+        ...entry,
+        url: this.normalizeYtDlpVideoUrl(entry),
+        author: entry.uploader || entry.channel || '',
+        seconds: typeof entry.duration === 'number' ? entry.duration : undefined,
+      }));
+  }
+
+  private normalizeYtDlpVideoUrl(video: YtDlpSearchVideo): string {
+    const rawUrl = String(video.webpage_url || video.url || '');
+
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+
+    const id = String(video.id || rawUrl || '').trim();
+    if (!id) {
+      return '';
+    }
+
+    return `https://www.youtube.com/watch?v=${id}`;
   }
 
   private scoreCandidate(
@@ -343,7 +401,7 @@ export class YoutubeService {
     return tempCookiesFile;
   }
 
-  private runYtDlp(args: string[]): Promise<void> {
+  private runYtDlpForOutput(args: string[]): Promise<string> {
     return new Promise((resolvePromise, rejectPromise) => {
       const child = spawn('yt-dlp', args, {
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -352,11 +410,11 @@ export class YoutubeService {
       let stdout = '';
       let stderr = '';
 
-      child.stdout.on('data', (chunk) => {
+      child.stdout?.on('data', (chunk) => {
         stdout += chunk.toString();
       });
 
-      child.stderr.on('data', (chunk) => {
+      child.stderr?.on('data', (chunk) => {
         stderr += chunk.toString();
       });
 
@@ -366,7 +424,7 @@ export class YoutubeService {
 
       child.on('close', (code) => {
         if (code === 0) {
-          resolvePromise();
+          resolvePromise(stdout);
           return;
         }
 
@@ -377,6 +435,10 @@ export class YoutubeService {
         );
       });
     });
+  }
+
+  private async runYtDlp(args: string[]): Promise<void> {
+    await this.runYtDlpForOutput(args);
   }
 
   async downloadAndFormat(track: TrackEntity, output: string): Promise<void> {

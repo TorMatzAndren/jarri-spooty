@@ -31,7 +31,6 @@
     "@nestjs/serve-static": "^4.0.2",
     "@nestjs/typeorm": "^10.0.2",
     "@nestjs/websockets": "^10.3.10",
-    "@types/yt-search": "^2.10.3",
     "bullmq": "^5.31.2",
     "isomorphic-unfetch": "^4.0.2",
     "node-id3": "^0.2.9",
@@ -39,7 +38,6 @@
     "rxjs": "7.8.0",
     "spotify-url-info": "^3.2.18",
     "sqlite3": "^5.1.7",
-    "yt-search": "^2.12.1",
     "ytdlp-nodejs": "^3.4.4"
   },
   "devDependencies": {
