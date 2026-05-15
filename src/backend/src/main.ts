@@ -4,7 +4,7 @@ import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { AppModule } from './app.module';
 import * as fs from 'fs';
 import { resolve } from 'path';
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import helmet from 'helmet';
 import { EnvironmentEnum } from './environmentEnum';
 
@@ -27,7 +27,16 @@ async function bootstrap() {
     try {
       // Convenience mode for the single-container Docker image.
       // Hardened deployments should prefer an external Redis service.
-      exec(`redis-server --port ${process.env.REDIS_PORT || 6379}`);
+      const redisProcess = spawn(
+        'redis-server',
+        ['--port', String(process.env.REDIS_PORT || 6379)],
+        {
+          stdio: 'ignore',
+          detached: true,
+        },
+      );
+
+      redisProcess.unref();
     } catch (e) {
       console.log('Unable to run redis server from app');
       console.log(e);
