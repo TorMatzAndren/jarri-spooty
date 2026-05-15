@@ -40,7 +40,7 @@ export class PlaylistController {
     return this.service.remove(id);
   }
 
-  @Get('retry/:id')
+  @Post('retry/:id')
   retryFailedOfPlaylist(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {

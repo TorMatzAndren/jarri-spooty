@@ -2,6 +2,7 @@ import {
   Controller,
   Delete,
   Get,
+  Post,
   NotFoundException,
   Param,
   ParseIntPipe,
@@ -66,7 +67,7 @@ export class TrackController {
     return this.service.remove(id);
   }
 
-  @Get('retry/:id')
+  @Post('retry/:id')
   retry(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
