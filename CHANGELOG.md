@@ -10,37 +10,60 @@ This project follows a practical chronological changelog rather than autogenerat
 
 ## Added
 
-### Spotify OAuth Integration
+### Spotify
 
 - Added Spotify OAuth login flow
 - Added `/api/spotify/login`
 - Added `/api/spotify/callback`
 - Added `/api/spotify/status`
-- Added persistent Spotify user access token storage
+- Added persistent Spotify user token storage
 - Added authenticated Spotify playlist retrieval
 - Added OAuth frontend bootstrap flow
+- Added support for playlists exceeding 300 tracks
+- Added deterministic playlist pagination handling
 
-### Large Playlist Support
+### YouTube
 
-- Fixed Spotify playlist truncation at 100 tracks
-- Added full Spotify pagination support
-- Verified support for playlists exceeding 300 tracks
-- Improved playlist queue handling stability
+- Added deterministic YouTube candidate scoring
+- Added duration-aware YouTube matching
+- Added failed-candidate rejection memory
+- Added automatic retry/fallback handling
+- Added explicit YouTube candidate exclusion support
+- Added detailed YouTube candidate debug logging
+- Added explicit yt-dlp CLI execution
+- Added deterministic yt-dlp stderr capture
+- Added age-gated video detection
+- Added invalid-format detection
+- Added Docker-compatible cookie handling
+- Added temporary cookie-copy isolation
+- Added retry-aware queue coordination
 
 ### Queue Hardening
 
 - Added configurable YouTube search pacing
 - Added configurable YouTube download pacing
-- Added sequential search queue behavior
+- Added sequential queue coordination
+- Added retry collision prevention
+- Added deterministic queue replacement handling
+- Added explicit retry-state transitions
 - Reduced aggressive request bursts toward YouTube
-- Improved queue logging visibility
+
+### Docker
+
+- Added persistent SQLite bind-mount recommendations
+- Added persistent runtime config recommendations
+- Added yt-dlp installation to runtime container
+- Improved Docker runtime observability
+- Improved hardened Docker startup flow
+- Improved deployment documentation
 
 ### Security
 
 - Added token-based frontend access mode
 - Added external secret handling recommendations
 - Added isolated Spotify credential storage
-- Improved Docker credential handling documentation
+- Added safer cookie handling flow
+- Improved Docker secret isolation documentation
 
 ### Frontend
 
@@ -49,37 +72,33 @@ This project follows a practical chronological changelog rather than autogenerat
 - Improved playlist rendering behavior
 - Improved large playlist progress tracking
 
-### Docker
+## Improved
 
-- Improved hardened Docker runtime flow
-- Added explicit environment variable examples
-- Added safer default pacing recommendations
-- Improved deployment documentation
+- Improved YouTube throttling resistance
+- Improved age-gated video recovery behavior
+- Improved operational observability
+- Improved cover-art embedding resilience
+- Improved queue stability during large playlist imports
+- Improved deterministic runtime behavior
+- Improved Docker persistence handling
 
-## Unreleased
+## Fixed
 
-### Added
-- Spotify OAuth login flow
-- Persistent Spotify user token handling
-- Large playlist pagination support (>100 tracks)
-- Deterministic YouTube candidate scoring
-- Duration-aware YouTube matching
-- Detailed YouTube candidate debug logging
-- Improved Docker deployment guidance
-
-### Improved
-- YouTube pacing and throttling resistance
-- Cover art embedding resilience
-- Queue stability during large playlist imports
-
-### Fixed
-- Spotify playlist truncation at 100 tracks
-- Incorrect live/acoustic YouTube selections
-- Playlist retrieval failures on large public playlists
+- Fixed Spotify playlist truncation at 100 tracks
+- Fixed incomplete playlist retrieval behavior
+- Fixed repeated retry loops against failed YouTube videos
+- Fixed queue deadlocks during retries
+- Fixed retry-button queue collisions
+- Fixed container database loss on restart
+- Fixed yt-dlp wrapper opacity issues
+- Fixed hidden yt-dlp stderr failures
+- Fixed multiple age-gated fallback failure paths
+- Fixed invalid YouTube candidate reuse
+- Fixed several Docker persistence edge cases
 
 ---
 
-# 2.4.2
+# 2.4.2 (Original Spooty Endpoint)
 
 ## Fixed
 

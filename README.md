@@ -14,6 +14,13 @@ This hardened branch focuses on:
 - Safer credential handling
 - More resilient cover-art embedding
 - Better queue stability
+- Deterministic YouTube fallback handling
+- Explicit yt-dlp CLI execution
+- Automatic failed-candidate rejection
+- Improved age-gated video handling
+- Persistent SQLite state across container restarts
+- Deterministic Docker config persistence
+- Improved operational observability
 
 ---
 
@@ -30,6 +37,9 @@ This hardened branch focuses on:
 - Large playlist pagination support
 - Download pacing controls
 - YouTube cookie support
+- Automatic YouTube retry/fallback handling
+- Failed YouTube candidate rejection memory
+- Deterministic yt-dlp error classification
 
 ---
 
@@ -80,7 +90,7 @@ Copy:
 
 Create a secure env file:
 
-~~~bash
+```bash
 sudo mkdir -p /etc/tokens
 
 sudo tee /etc/tokens/spotify.env > /dev/null <<'EOF'
@@ -90,25 +100,44 @@ EOF
 
 sudo chown root:$USER /etc/tokens/spotify.env
 sudo chmod 640 /etc/tokens/spotify.env
-~~~
+```
 
 Never commit this file.
 
 ---
 
+## 3. Export YouTube Cookies (Recommended)
+
+YouTube increasingly rate-limits or age-gates anonymous downloads.
+
+Export a Netscape-format `cookies.txt` from a logged-in browser session.
+
+Recommended storage:
+
+```bash
+sudo cp cookies.txt /etc/tokens/youtube.cookies.txt
+sudo chown root:$USER /etc/tokens/youtube.cookies.txt
+sudo chmod 640 /etc/tokens/youtube.cookies.txt
+```
+
+---
+
 # Docker Run
 
-~~~bash
+```bash
 docker run --rm -p 3000:3000 \
   --env-file /etc/tokens/spotify.env \
   -e SPOTIFY_REDIRECT_URI='http://127.0.0.1:3000/api/spotify/callback' \
   -e AUTH_ENABLED=true \
   -e SPOOTY_AUTH_TOKEN=change_this_token \
   -e YT_SEARCH_DELAY_MS=7000 \
-  -e YT_DOWNLOADS_PER_MINUTE=3 \
+  -e YT_DOWNLOADS_PER_MINUTE=6 \
+  -e YT_COOKIES_FILE=/spooty/config/youtube.cookies.txt \
   -v "$PWD/downloads:/spooty/backend/downloads" \
+  -v "$PWD/spooty-config:/spooty/backend/config" \
+  -v "/etc/tokens/youtube.cookies.txt:/spooty/config/youtube.cookies.txt:ro" \
   spootyfy-hardened:local
-~~~
+```
 
 Open:
 
@@ -126,7 +155,7 @@ Then:
 
 # Docker Compose
 
-~~~yaml
+```yaml
 services:
   spooty:
     image: spootyfy-hardened:local
@@ -145,11 +174,15 @@ services:
       SPOOTY_AUTH_TOKEN: "change_this_token"
 
       YT_SEARCH_DELAY_MS: "7000"
-      YT_DOWNLOADS_PER_MINUTE: "3"
+      YT_DOWNLOADS_PER_MINUTE: "6"
+
+      YT_COOKIES_FILE: "/spooty/config/youtube.cookies.txt"
 
     volumes:
       - ./downloads:/spooty/backend/downloads
-~~~
+      - ./spooty-config:/spooty/backend/config
+      - /etc/tokens/youtube.cookies.txt:/spooty/config/youtube.cookies.txt:ro
+```
 
 ---
 
@@ -162,23 +195,25 @@ services:
 - ffmpeg
 - Python3
 - Redis
+- yt-dlp
 
 ---
 
 ## Build
 
-~~~bash
+```bash
 npm install
 npm run build
-~~~
+docker build -t spootyfy-hardened:local .
+```
 
 ---
 
 ## Run
 
-~~~bash
+```bash
 npm run start
-~~~
+```
 
 ---
 
@@ -196,8 +231,8 @@ npm run start
 | SPOTIFY_REDIRECT_URI | unset | OAuth callback URI |
 | AUTH_ENABLED | `false` | Enable frontend token auth |
 | SPOOTY_AUTH_TOKEN | unset | Frontend auth token |
-| YT_SEARCH_DELAY_MS | `5000` | Delay between YouTube searches |
-| YT_DOWNLOADS_PER_MINUTE | `3` | Download pacing |
+| YT_SEARCH_DELAY_MS | `7000` | Delay between YouTube searches |
+| YT_DOWNLOADS_PER_MINUTE | `6` | Download pacing |
 | YT_COOKIES | unset | Browser cookie extraction |
 | YT_COOKIES_FILE | unset | Netscape cookies.txt path |
 
@@ -213,9 +248,9 @@ Two supported methods exist.
 
 ## Browser Cookies (Native Install Only)
 
-~~~bash
+```bash
 YT_COOKIES=firefox
-~~~
+```
 
 Supported:
 
@@ -236,15 +271,63 @@ Export a Netscape-format `cookies.txt`.
 
 Mount into container:
 
-~~~bash
--v /path/to/cookies.txt:/spooty/config/cookies.txt
-~~~
+```bash
+-v /path/to/cookies.txt:/spooty/config/youtube.cookies.txt:ro
+```
 
 Then:
 
-~~~bash
--e YT_COOKIES_FILE=/spooty/config/cookies.txt
-~~~
+```bash
+-e YT_COOKIES_FILE=/spooty/config/youtube.cookies.txt
+```
+
+---
+
+# Deterministic YouTube Fallback Handling
+
+The hardened branch now uses direct `yt-dlp` CLI execution rather than relying entirely on wrapper abstractions.
+
+This provides:
+
+- Explicit stderr visibility
+- Better Docker compatibility
+- Deterministic retry handling
+- Automatic failed-candidate rejection
+- Better age-gated video handling
+- Improved operational observability
+
+If a YouTube candidate fails:
+
+1. The failed URL is recorded
+2. The candidate is rejected
+3. A new YouTube search is performed
+4. The next-best valid candidate is attempted automatically
+
+This prevents infinite retry loops against dead or restricted videos.
+
+---
+
+# Persistent Docker State
+
+The hardened Docker flow strongly recommends persistent bind mounts for:
+
+- downloads
+- SQLite database
+- runtime config
+
+Recommended:
+
+```bash
+-v "$PWD/downloads:/spooty/backend/downloads" \
+-v "$PWD/spooty-config:/spooty/backend/config"
+```
+
+This prevents:
+
+- database resets on container recreation
+- queue state loss
+- retry-state loss
+- playlist metadata loss
 
 ---
 
@@ -272,10 +355,45 @@ Aggressive YouTube access can trigger:
 
 Recommended safe pacing:
 
-~~~bash
+```bash
 -e YT_SEARCH_DELAY_MS=7000
--e YT_DOWNLOADS_PER_MINUTE=3
-~~~
+-e YT_DOWNLOADS_PER_MINUTE=6
+```
+
+The hardened branch also includes additional internal pacing and retry coordination to reduce:
+
+- repeated failed candidate loops
+- aggressive retry bursts
+- queue collisions
+- YouTube anti-bot triggers
+
+---
+
+# yt-dlp Notes
+
+Modern YouTube behavior changes frequently.
+
+The hardened branch now:
+
+- Uses explicit yt-dlp CLI execution
+- Captures stderr deterministically
+- Detects age-gated failures
+- Detects missing downloadable formats
+- Handles retry/fallback selection explicitly
+
+Some videos may still fail due to:
+
+- regional restrictions
+- removed videos
+- YouTube anti-bot measures
+- invalid cookies
+- unavailable formats
+
+Recommended:
+
+- fresh cookies.txt exports
+- authenticated YouTube sessions
+- moderate pacing settings
 
 ---
 
@@ -288,17 +406,19 @@ Never commit:
 - cookies.txt
 - downloaded music
 - local databases
+- spooty-config/
 
 Recommended `.gitignore` additions:
 
-~~~gitignore
+```gitignore
 downloads/
 config/
+spooty-config/
 *.sqlite
 cookies.txt
 .env
 .env.local
-~~~
+```
 
 ---
 
@@ -318,10 +438,19 @@ cookies.txt
 
 ### YouTube
 
-- Added configurable search pacing
-- Added configurable download pacing
-- Reduced aggressive YouTube request bursts
-- Improved queue throttling behavior
+- Added deterministic YouTube candidate scoring
+- Added duration-aware YouTube matching
+- Added failed-candidate rejection memory
+- Added automatic retry/fallback handling
+- Added explicit YouTube candidate exclusion support
+- Added detailed YouTube candidate debug logging
+- Added explicit yt-dlp CLI execution
+- Added deterministic yt-dlp stderr capture
+- Added age-gated video detection
+- Added invalid-format detection
+- Added Docker-compatible cookie handling
+- Added temporary cookie-copy isolation
+- Added retry-aware queue coordination
 
 ### Backend
 
@@ -330,6 +459,7 @@ cookies.txt
 - Improved Docker runtime stability
 - Improved logging around Spotify retrieval
 - Added auth bootstrap flow support
+- Added deterministic retry-state handling
 
 ### Frontend
 
@@ -351,17 +481,20 @@ cookies.txt
 
 Recommended local test run:
 
-~~~bash
+```bash
 docker run --rm -p 3000:3000 \
   --env-file /etc/tokens/spotify.env \
   -e SPOTIFY_REDIRECT_URI='http://127.0.0.1:3000/api/spotify/callback' \
   -e AUTH_ENABLED=true \
   -e SPOOTY_AUTH_TOKEN=test-token \
   -e YT_SEARCH_DELAY_MS=7000 \
-  -e YT_DOWNLOADS_PER_MINUTE=3 \
+  -e YT_DOWNLOADS_PER_MINUTE=6 \
+  -e YT_COOKIES_FILE=/spooty/config/youtube.cookies.txt \
   -v "$PWD/downloads:/spooty/backend/downloads" \
+  -v "$PWD/spooty-config:/spooty/backend/config" \
+  -v "/etc/tokens/youtube.cookies.txt:/spooty/config/youtube.cookies.txt:ro" \
   spootyfy-hardened:local
-~~~
+```
 
 ---
 
