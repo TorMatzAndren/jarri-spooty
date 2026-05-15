@@ -57,7 +57,7 @@ export class TrackService {
   }
 
   retry(id: number): void {
-    this.http.get(`${ENDPOINT}/retry/${id}`).subscribe();
+    this.http.post(`${ENDPOINT}/retry/${id}`, {}).subscribe();
   }
 
   private initWsConnection(): void {

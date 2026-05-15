@@ -138,7 +138,7 @@ export class PlaylistService {
   }
 
   retryFailed(id: number): void {
-    this.http.get<void>(`${ENDPOINT}/retry/${id}`).subscribe();
+    this.http.post<void>(`${ENDPOINT}/retry/${id}`, {}).subscribe();
   }
 
   setActive(id: number, active: boolean): void {
