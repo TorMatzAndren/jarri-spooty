@@ -407,6 +407,37 @@ export class YoutubeService {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
+      const timeoutMs = 10 * 60 * 1000;
+      let settled = false;
+
+      const settleResolve = (value: string) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        clearTimeout(timeout);
+        resolvePromise(value);
+      };
+
+      const settleReject = (error: Error) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        clearTimeout(timeout);
+        rejectPromise(error);
+      };
+
+      const timeout = setTimeout(() => {
+        child.kill('SIGKILL');
+
+        settleReject(
+          new Error(`yt-dlp exceeded maximum runtime of ${timeoutMs}ms`),
+        );
+      }, timeoutMs);
+
       let stdout = '';
       let stderr = '';
 
@@ -419,16 +450,20 @@ export class YoutubeService {
       });
 
       child.on('error', (error) => {
-        rejectPromise(new Error(`Failed to start yt-dlp: ${error.message}`));
+        settleReject(new Error(`Failed to start yt-dlp: ${error.message}`));
       });
 
       child.on('close', (code) => {
-        if (code === 0) {
-          resolvePromise(stdout);
+        if (settled) {
           return;
         }
 
-        rejectPromise(
+        if (code === 0) {
+          settleResolve(stdout);
+          return;
+        }
+
+        settleReject(
           new Error(
             `yt-dlp exited with code ${code}: ${this.classifyYtDlpError(stderr || stdout)}`,
           ),
