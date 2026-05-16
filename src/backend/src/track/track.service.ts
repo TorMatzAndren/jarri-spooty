@@ -56,18 +56,34 @@ export class TrackService {
     this.io.emit(WsTrackOperation.Delete, { id });
   }
 
+  private toClientTrack(track: TrackEntity): Partial<TrackEntity> {
+    return {
+      id: track.id,
+      artist: track.artist,
+      name: track.name,
+      spotifyUrl: track.spotifyUrl,
+      youtubeUrl: track.youtubeUrl,
+      downloadAttemptCount: track.downloadAttemptCount,
+      status: track.status,
+      error: track.error,
+      coverUrl: track.coverUrl,
+      durationMs: track.durationMs,
+      createdAt: track.createdAt,
+    };
+  }
+
   async create(track: TrackEntity, playlist?: PlaylistEntity): Promise<void> {
     const savedTrack = await this.repository.save({ ...track, playlist });
     await this.enqueueSearch(savedTrack.id);
     this.io.emit(WsTrackOperation.New, {
-      track: savedTrack,
+      track: this.toClientTrack(savedTrack),
       playlistId: playlist.id,
     });
   }
 
   async update(id: number, track: TrackEntity): Promise<void> {
     await this.repository.update(id, track);
-    this.io.emit(WsTrackOperation.Update, track);
+    this.io.emit(WsTrackOperation.Update, this.toClientTrack(track));
   }
 
   private parseRejectedYoutubeUrls(track: TrackEntity): string[] {
