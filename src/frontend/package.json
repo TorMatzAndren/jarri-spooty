@@ -19,7 +19,6 @@
     "@angular/platform-browser": "^19.2.22",
     "@angular/platform-browser-dynamic": "^19.2.22",
     "@angular/router": "^19.2.22",
-    "@distube/ytdl-core": "^4.15.9",
     "@fortawesome/fontawesome-free": "^6.5.2",
     "@ngneat/elf": "^2.5.1",
     "@ngneat/elf-cli-ng": "^1.0.0",

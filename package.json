@@ -17,8 +17,7 @@
     "clean": "rimraf dist",
     "changelog": "auto-changelog -p",
     "release": "release-it",
-    "commit": "cz",
-    "check:lib": "npm-check-updates -w backend -f ytdlp-nodejs -u"
+    "commit": "cz"
   },
   "devDependencies": {
     "@release-it/bumper": "^7.0.1",
