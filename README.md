@@ -1,8 +1,8 @@
-# Spooty Hardened
+# Jarri Spooty
 
 Self-hosted Spotify playlist and track downloader built with NestJS + Angular.
 
-Spooty does not download audio from Spotify itself.  
+Jarri Spooty does not download audio from Spotify itself.  
 It retrieves metadata from Spotify and locates matching audio on YouTube.
 
 This hardened branch focuses on:

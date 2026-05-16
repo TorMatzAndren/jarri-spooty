@@ -34,7 +34,7 @@ export class AuthGuard implements CanActivate {
     const providedToken = this.extractToken(request);
 
     if (providedToken !== expectedToken) {
-      throw new UnauthorizedException('Invalid or missing Spooty auth token');
+      throw new UnauthorizedException('Invalid or missing Jarri Spooty auth token');
     }
 
     return true;
