@@ -494,12 +494,47 @@ export class YoutubeService {
       return;
     }
 
-    const res = await fetch(coverUrl);
+    let parsedCoverUrl: URL;
+    try {
+      parsedCoverUrl = new URL(coverUrl);
+    } catch {
+      throw new Error('Invalid cover art URL');
+    }
+
+    if (!['http:', 'https:'].includes(parsedCoverUrl.protocol)) {
+      throw new Error('Rejected non-HTTP cover art URL');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    let res: Response;
+    try {
+      res = await fetch(parsedCoverUrl.toString(), { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+
     if (!res.ok) {
       throw new Error(`Failed to fetch cover art: ${res.status}`);
     }
 
+    const contentType = res.headers.get('content-type')?.split(';')[0].toLowerCase() || '';
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
+      throw new Error(`Rejected unsupported cover art type: ${contentType || 'unknown'}`);
+    }
+
+    const maxCoverBytes = 5 * 1024 * 1024;
+    const contentLength = Number(res.headers.get('content-length') || 0);
+    if (contentLength > maxCoverBytes) {
+      throw new Error(`Rejected oversized cover art: ${contentLength} bytes`);
+    }
+
     const arrayBuf = await res.arrayBuffer();
+    if (arrayBuf.byteLength > maxCoverBytes) {
+      throw new Error(`Rejected oversized cover art: ${arrayBuf.byteLength} bytes`);
+    }
+
     const imageBuffer = Buffer.from(arrayBuf);
 
     NodeID3.write(
@@ -507,7 +542,7 @@ export class YoutubeService {
         title,
         artist,
         APIC: {
-          mime: 'image/jpeg',
+          mime: contentType,
           type: { id: 3, name: 'front cover' },
           description: 'cover',
           imageBuffer,
