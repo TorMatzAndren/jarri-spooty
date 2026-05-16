@@ -5,6 +5,10 @@ Self-hosted Spotify playlist and track downloader built with NestJS + Angular.
 Jarri Spooty does not download audio from Spotify itself.  
 It retrieves metadata from Spotify and locates matching audio on YouTube.
 
+![Jarri Spooty Demo](docs/images/jarri-spooty-demo.png)
+
+Deterministic Spotify metadata ingestion with duration-aware YouTube candidate scoring, paced queue execution, hardened Docker deployment, and local archival workflows.
+
 This hardened branch focuses on:
 
 - Large playlist support (>100 tracks)
