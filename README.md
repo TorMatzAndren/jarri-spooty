@@ -21,6 +21,8 @@ This hardened branch focuses on:
 - Persistent SQLite state across container restarts
 - Deterministic Docker config persistence
 - Improved operational observability
+- Reduced unused dependency surface
+- Hardened filename, cover-art, subprocess, and websocket boundaries
 
 ---
 
@@ -40,6 +42,8 @@ This hardened branch focuses on:
 - Automatic YouTube retry/fallback handling
 - Failed YouTube candidate rejection memory
 - Deterministic yt-dlp error classification
+- Hardened cover-art validation and embedding
+- Explicit client-facing websocket payload shaping
 
 ---
 
@@ -136,7 +140,7 @@ docker run --rm -p 3000:3000 \
   -v "$PWD/downloads:/spooty/backend/downloads" \
   -v "$PWD/spooty-config:/spooty/backend/config" \
   -v "/etc/tokens/youtube.cookies.txt:/spooty/config/youtube.cookies.txt:ro" \
-  spootyfy-hardened:local
+  jarri-spooty:local
 ```
 
 Open:
@@ -158,8 +162,8 @@ Then:
 ```yaml
 services:
   spooty:
-    image: spootyfy-hardened:local
-    container_name: spooty
+    image: jarri-spooty:local
+    container_name: jarri-spooty
     restart: unless-stopped
 
     ports:
@@ -204,7 +208,7 @@ services:
 ```bash
 npm install
 npm run build
-docker build -t spootyfy-hardened:local .
+docker build -t jarri-spooty:local .
 ```
 
 ---
@@ -493,7 +497,7 @@ docker run --rm -p 3000:3000 \
   -v "$PWD/downloads:/spooty/backend/downloads" \
   -v "$PWD/spooty-config:/spooty/backend/config" \
   -v "/etc/tokens/youtube.cookies.txt:/spooty/config/youtube.cookies.txt:ro" \
-  spootyfy-hardened:local
+  jarri-spooty:local
 ```
 
 ---

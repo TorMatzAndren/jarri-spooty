@@ -64,6 +64,12 @@ This project follows a practical chronological changelog rather than autogenerat
 - Added isolated Spotify credential storage
 - Added safer cookie handling flow
 - Improved Docker secret isolation documentation
+- Removed unused downloader dependencies to reduce transitive attack surface
+- Hardened download filename sanitization
+- Hardened remote cover-art fetching with protocol, MIME, timeout, and size checks
+- Added yt-dlp subprocess timeout and single-settlement handling
+- Shaped track websocket payloads to avoid leaking internal entity fields
+- Normalized visible project naming to Jarri Spooty
 
 ### Frontend
 
