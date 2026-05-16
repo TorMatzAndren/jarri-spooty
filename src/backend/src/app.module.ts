@@ -11,6 +11,9 @@ import { PlaylistEntity } from './playlist/playlist.entity';
 import { resolve } from 'path';
 import { EnvironmentEnum } from './environmentEnum';
 import { BullModule } from '@nestjs/bullmq';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from './shared/auth.guard';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -42,11 +45,30 @@ import { BullModule } from '@nestjs/bullmq';
       ],
       inject: [ConfigService],
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 60,
+      },
+    ]),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         defaultJobOptions: {
-          removeOnComplete: true,
+          attempts: 2,
+          backoff: {
+            type: 'exponential',
+            delay: 30_000,
+          },
+          removeOnComplete: {
+            age: 3_600,
+            count: 1_000,
+          },
+          removeOnFail: {
+            age: 86_400,
+            count: 1_000,
+          },
+          timeout: 10 * 60_000,
         },
         connection: {
           host: configService.get<string>(EnvironmentEnum.REDIS_HOST),
@@ -59,6 +81,15 @@ import { BullModule } from '@nestjs/bullmq';
     PlaylistModule,
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -5,6 +5,7 @@ import {PlaylistService, PlaylistStatusEnum} from "./services/playlist.service";
 import {PlaylistBoxComponent} from "./components/playlist-box/playlist-box.component";
 import {VersionService} from "./services/version.service";
 import {map} from "rxjs";
+import {HttpClient} from "@angular/common/http";
 
 @Component({
     selector: 'app-root',
@@ -25,12 +26,39 @@ export class AppComponent {
   playlists$ = this.playlistService.all$.pipe(map(items => items.filter(item => !item.isTrack)));
   songs$ = this.playlistService.all$.pipe(map(items => items.filter(item => item.isTrack)));
   version = this.versionService.getVersion();
+  spotifyConnected = false;
 
   constructor(
     private readonly playlistService: PlaylistService,
     private readonly versionService: VersionService,
+    private readonly http: HttpClient,
   ) {
+    this.bootstrapAuthTokenFromUrl();
+    this.checkSpotifyStatus();
     this.fetchPlaylists();
+  }
+
+  private bootstrapAuthTokenFromUrl(): void {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('token');
+
+    if (!token) {
+      return;
+    }
+
+    localStorage.setItem('spooty_auth_token', token);
+    url.searchParams.delete('token');
+    window.history.replaceState({}, document.title, url.toString());
+  }
+
+  checkSpotifyStatus(): void {
+    this.http
+      .get<{ connected: boolean }>('/api/spotify/status')
+      .subscribe((status) => (this.spotifyConnected = status.connected));
+  }
+
+  connectSpotify(): void {
+    window.location.href = '/api/spotify/login';
   }
 
   fetchPlaylists(): void {

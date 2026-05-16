@@ -27,6 +27,12 @@ export class TrackEntity {
   @Column({ nullable: true })
   youtubeUrl?: string;
 
+  @Column({ nullable: true, type: 'text' })
+  rejectedYoutubeUrls?: string;
+
+  @Column({ default: 0 })
+  downloadAttemptCount?: number;
+
   @Column({ default: TrackStatusEnum.New })
   status?: TrackStatusEnum;
 
@@ -35,6 +41,9 @@ export class TrackEntity {
 
   @Column({ nullable: true })
   coverUrl?: string; // Track-specific album art (overrides playlist coverUrl)
+
+  @Column({ nullable: true })
+  durationMs?: number;
 
   @Column({ default: Date.now() })
   createdAt?: number;

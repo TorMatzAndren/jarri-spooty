@@ -1,40 +1,73 @@
-<section class="hero is-primary">
-  <div class="hero-body">
-    <p class="title">
+<section class="jarri-hero">
+  <div class="hero-left">
+    <p class="eyebrow">Jarri subsystem · deterministic media ingestion</p>
+    <h1>
       <i class="fa-brands fa-spotify"></i>
-      <span>Spooty</span>
-      <span class="tag is-dark is-size-7">v{{version}}</span>
+      Jarri Spooty
+      <span class="tag version-tag">v{{version}}</span>
+    </h1>
+    <p class="hero-subtitle">Spotify metadata → YouTube candidate scoring → Local archive</p>
+  </div>
+
+  <div class="hero-right">
+    <button
+      class="button auth-button"
+      [class.connected]="spotifyConnected"
+      (click)="connectSpotify()"
+    >
+      <i class="fa-solid" [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"></i>
+      {{ spotifyConnected ? 'Spotify connected' : 'Connect Spotify' }}
+    </button>
+  </div>
+</section>
+
+<section class="jarri-body">
+  <div class="intelligence-grid">
+    <div class="intel-card">
+      <span class="intel-label">Spotify</span>
+      <strong [class.online]="spotifyConnected">{{ spotifyConnected ? 'Connected' : 'Disconnected' }}</strong>
+    </div>
+    <div class="intel-card">
+      <span class="intel-label">Matching</span>
+      <strong>Duration-aware</strong>
+    </div>
+    <div class="intel-card">
+      <span class="intel-label">Queue</span>
+      <strong>Paced</strong>
+    </div>
+    <div class="intel-card">
+      <span class="intel-label">Mode</span>
+      <strong>Archive run</strong>
+    </div>
+  </div>
+
+  <div class="box jarri-box">
+    <p class="subtitle">Acquire music</p>
+    <div class="is-flex">
+      <input class="input"
+             [class.is-danger]="url && !isValidSpotifyUrl"
+             type="text"
+             [(ngModel)]="url"
+             placeholder="Paste Spotify playlist or track URL"/>
+      <button class="button is-primary"
+              [class.is-loading]="(createLoading$ | async)?.isLoading"
+              (click)="download()"
+              [disabled]="!url || !isValidSpotifyUrl"
+      >
+        <i class="fa-solid fa-download"></i> Queue
+      </button>
+    </div>
+    <p *ngIf="url && !isValidSpotifyUrl" class="help is-danger">
+      Please enter a valid Spotify URL.
     </p>
-    <p class="subtitle">Self-hosted spotify downloader</p>
   </div>
-</section>
 
-<section class="hero">
-  <div class="hero-body">
-    <div class="box">
-      <p class="subtitle">Download</p>
+  <div class="box jarri-box">
+    <div class="is-flex is-justify-content-space-between">
       <div>
-        <div class="is-flex">
-          <input class="input"
-                 [class.is-danger]="url && !isValidSpotifyUrl"
-                 type="text"
-                 [(ngModel)]="url"
-                 placeholder="Paste playlist/song/artist url"/>
-          <button class="button is-primary"
-                  [class.is-loading]="(createLoading$ | async)?.isLoading"
-                  (click)="download()"
-                  [disabled]="!url || !isValidSpotifyUrl"
-          >
-            <i class="fa-solid fa-download"></i> Download
-          </button>
-        </div>
-        <p *ngIf="url && !isValidSpotifyUrl" class="help is-danger">Please enter a valid Spotify URL (e.g. https://open.spotify.com/...)</p>
+        <p class="subtitle">Playlist History</p>
+        <p class="has-text-grey is-size-7">One collapsed row per playlist run.</p>
       </div>
-    </div>
-    <hr>
-    <div class="box">
-    <div class="is-flex is-justify-content-space-between">
-      <p class="subtitle">Playlists</p>
       <div class="buttons has-addons">
         <button class="button is-outlined is-success" title="Remove completed from list" (click)="deleteCompleted()">
           <i class="fa-solid fa-check"></i>
@@ -44,30 +77,18 @@
         </button>
       </div>
     </div>
-      <ng-container *ngIf="playlists$ | async as playlists">
-        <app-playlist-box *ngFor="let playlist of playlists" [playlist]="playlist"></app-playlist-box>
-        <p *ngIf="playlists?.length === 0" class="has-text-grey has-text-centered">No playlists</p>
-      </ng-container>
-    </div>
-    <hr>
-    <div class="box">
-    <div class="is-flex is-justify-content-space-between">
-      <p class="subtitle">Songs</p>
-      <div class="buttons has-addons">
-        <button class="button is-outlined is-success" title="Remove completed from list" (click)="deleteCompleted()">
-          <i class="fa-solid fa-check"></i>
-        </button>
-        <button class="button is-outlined is-danger" title="Remove failed from list" (click)="deleteFailed()">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-    </div>
-      <ng-container *ngIf="songs$ | async as songs">
-        <app-playlist-box *ngFor="let playlist of songs" [playlist]="playlist"></app-playlist-box>
-        <p *ngIf="songs?.length === 0" class="has-text-grey has-text-centered">No songs</p>
-      </ng-container>
-    </div>
+
+    <ng-container *ngIf="playlists$ | async as playlists">
+      <app-playlist-box *ngFor="let playlist of playlists" [playlist]="playlist"></app-playlist-box>
+      <p *ngIf="playlists?.length === 0" class="has-text-grey has-text-centered">No playlists</p>
+    </ng-container>
+  </div>
+
+  <div class="box jarri-box">
+    <p class="subtitle">Single Songs</p>
+    <ng-container *ngIf="songs$ | async as songs">
+      <app-playlist-box *ngFor="let playlist of songs" [playlist]="playlist"></app-playlist-box>
+      <p *ngIf="songs?.length === 0" class="has-text-grey has-text-centered">No songs</p>
+    </ng-container>
   </div>
 </section>
-
-

@@ -1,0 +1,129 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(29, 185, 84, 0.18), transparent 30rem),
+    linear-gradient(135deg, #06110c 0%, #0a1210 45%, #020403 100%);
+  color: #eafff0;
+}
+
+.jarri-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  padding: 34px 44px;
+  background:
+    linear-gradient(90deg, rgba(3, 12, 7, 0.95), rgba(29, 185, 84, 0.92));
+  border-bottom: 1px solid rgba(126, 255, 180, 0.25);
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #9fffc3;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+h1 {
+  margin: 0;
+  color: #f3fff7;
+  font-size: clamp(2.2rem, 4vw, 4.6rem);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+}
+
+.hero-subtitle {
+  margin-top: 8px;
+  color: #d8ffe5;
+  font-size: 1.05rem;
+}
+
+.version-tag {
+  background: #07110c;
+  color: #9fffc3;
+  vertical-align: middle;
+}
+
+.auth-button {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.92);
+  color: #07110c;
+  font-weight: 800;
+}
+
+.auth-button.connected {
+  background: #9fffc3;
+}
+
+.jarri-body {
+  padding: 34px 44px;
+}
+
+.intelligence-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.intel-card {
+  border: 1px solid rgba(126, 255, 180, 0.18);
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.22);
+}
+
+.intel-label {
+  display: block;
+  color: #8ea99a;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.intel-card strong {
+  display: block;
+  margin-top: 4px;
+  color: #f1fff5;
+  font-size: 1.1rem;
+}
+
+.intel-card strong.online {
+  color: #9fffc3;
+}
+
+.jarri-box {
+  border-radius: 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.24);
+}
+
+.button {
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .jarri-hero,
+  .jarri-body {
+    padding: 18px;
+  }
+
+  .jarri-hero {
+    display: block;
+  }
+
+  .hero-right {
+    margin-top: 14px;
+  }
+
+  .intelligence-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
