@@ -4,3 +4,4 @@
 **/*.sqlite
 # Local Netlify folder
 .netlify
+test-downloads/
