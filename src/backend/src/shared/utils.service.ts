@@ -22,7 +22,7 @@ export class UtilsService {
   }
 
   ensureInsideDownloadsRoot(candidatePath: string): string {
-    const root = this.getRootDownloadsPath();
+    const root = resolve(this.getRootDownloadsPath());
     const resolvedCandidate = resolve(candidatePath);
     const rel = relative(root, resolvedCandidate);
 
@@ -34,6 +34,20 @@ export class UtilsService {
   }
 
   stripFileIllegalChars(text: string): string {
-    return text.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'untitled';
+    const sanitized = String(text || '')
+      .replace(/[\x00-\x1f\x80-\x9f]/g, '-')
+      .replace(/[/\\?%*:|"<>]/g, '-')
+      .replace(/\s+/g, ' ')
+      .replace(/[. ]+$/g, '')
+      .trim();
+
+    const fallback = sanitized || 'untitled';
+    const reservedName = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
+
+    if (reservedName.test(fallback) || fallback === '.' || fallback === '..') {
+      return `_${fallback}`;
+    }
+
+    return fallback.slice(0, 180);
   }
 }
