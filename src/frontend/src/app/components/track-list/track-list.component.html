@@ -1,18 +1,21 @@
-<a class="panel-block is-flex is-justify-content-space-between" *ngFor="let track of tracks$ | async">
+<a class="panel-block is-flex is-justify-content-space-between" *ngFor="let track of tracks$ | async" (click)="select(track)">
   <div>
     <span>{{ track.artist }} - {{ track.name }}</span>&nbsp;
     <a [href]="track.spotifyUrl"
        target="_blank"
+       (click)="$event.stopPropagation()"
        class="has-text-primary margin-left" title="Spotify preview of track that will be downloaded">
       <i class="fa-brands fa-spotify"></i>
     </a>&nbsp;
     <a [href]="track.youtubeUrl"
        target="_blank"
+       (click)="$event.stopPropagation()"
        class="has-text-danger is-color-black" title="Youtube searched track that will be downloaded">
       <i class="fa-brands fa-youtube"></i>
     </a>&nbsp;
     <a *ngIf="track.status === trackStatuses.Completed"
        href="api/track/download/{{track.id}}"
+       (click)="$event.stopPropagation()"
        class="has-text-info"
        title="Download downloaded and locally saved file"
        download>
@@ -20,8 +23,8 @@
     </a>
   </div>
   <div>
-    <i *ngIf="track.status === trackStatuses.Error" class="fa-solid fa-repeat hover-icon" title="Retry to download" (click)="retry(track.id)"></i>&nbsp;
-    <i class="fa-solid fa-xmark hover-icon" title="Remove track from list" (click)="delete(track.id)"></i>&nbsp;
+    <i *ngIf="track.status === trackStatuses.Error" class="fa-solid fa-repeat hover-icon" title="Retry to download" (click)="$event.stopPropagation(); retry(track.id)"></i>&nbsp;
+    <i class="fa-solid fa-xmark hover-icon" title="Remove track from list" (click)="$event.stopPropagation(); delete(track.id)"></i>&nbsp;
     <ng-container [ngSwitch]="track.status">
       <span *ngSwitchCase="trackStatuses.New" class="tag is-info">New</span>
       <span *ngSwitchCase="trackStatuses.Searching" class="tag is-warning">Searching</span>

@@ -1,94 +1,322 @@
-<section class="jarri-hero">
-  <div class="hero-left">
-    <p class="eyebrow">Jarri subsystem · deterministic media ingestion</p>
-    <h1>
-      <i class="fa-brands fa-spotify"></i>
-      Jarri Spooty
-      <span class="tag version-tag">v{{version}}</span>
-    </h1>
-    <p class="hero-subtitle">Spotify metadata → YouTube candidate scoring → Local archive</p>
-  </div>
+<main class="workspace-shell">
+  <header class="workspace-titlebar">
+    <div class="brand-stack">
+      <div class="brand-line">
+        <i class="fa-brands fa-spotify"></i>
+        <h1>Jarri Spooty</h1>
+        <span class="tag version-tag">v{{version}}</span>
+      </div>
+      <p>Spotify metadata → YouTube candidate scoring → Local archive</p>
+    </div>
 
-  <div class="hero-right">
+    <div class="truth-strip">
+      <span class="truth-pill" [class.connected]="spotifyConnected">
+        <i class="fa-solid" [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"></i>
+        {{ spotifyConnected ? 'Spotify connected' : 'Spotify disconnected' }}
+      </span>
+    </div>
+  </header>
+
+  <nav class="workspace-tabs" aria-label="Workspace tabs">
     <button
-      class="button auth-button"
-      [class.connected]="spotifyConnected"
-      (click)="connectSpotify()"
+      *ngFor="let tab of workspaceTabs"
+      class="workspace-tab"
+      type="button"
+      [class.active]="activeWorkspaceTab === tab"
+      (click)="switchWorkspaceTab(tab)"
     >
-      <i class="fa-solid" [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"></i>
-      {{ spotifyConnected ? 'Spotify connected' : 'Connect Spotify' }}
+      {{ getWorkspaceTabLabel(tab) }}
     </button>
-  </div>
-</section>
+  </nav>
 
-<section class="jarri-body">
-  <div class="intelligence-grid">
-    <div class="intel-card">
-      <span class="intel-label">Spotify</span>
-      <strong [class.online]="spotifyConnected">{{ spotifyConnected ? 'Connected' : 'Disconnected' }}</strong>
+  <section class="workspace-controls">
+    <div class="panel-picker">
+      <div class="select">
+        <select [(ngModel)]="selectedPanelType" aria-label="Add panel type">
+          <option *ngFor="let panelType of panelTypes" [ngValue]="panelType">
+            {{ getPanelTitle(panelType) }}
+          </option>
+        </select>
+      </div>
+      <button class="button is-primary" type="button" (click)="addPanel()">
+        <i class="fa-solid fa-plus"></i>
+        Add Panel
+      </button>
     </div>
-    <div class="intel-card">
-      <span class="intel-label">Matching</span>
-      <strong>Duration-aware</strong>
-    </div>
-    <div class="intel-card">
-      <span class="intel-label">Queue</span>
-      <strong>Paced</strong>
-    </div>
-    <div class="intel-card">
-      <span class="intel-label">Mode</span>
-      <strong>Archive run</strong>
-    </div>
-  </div>
 
-  <div class="box jarri-box">
-    <p class="subtitle">Acquire music</p>
-    <div class="is-flex">
-      <input class="input"
-             [class.is-danger]="url && !isValidSpotifyUrl"
-             type="text"
-             [(ngModel)]="url"
-             placeholder="Paste Spotify playlist or track URL"/>
-      <button class="button is-primary"
+    <div class="panel-picker">
+      <button class="button reset-button" type="button" (click)="resetLayout()">
+        <i class="fa-solid fa-rotate-left"></i>
+        Reset Current Tab
+      </button>
+      <button class="button reset-button" type="button" (click)="resetAllLayouts()">
+        <i class="fa-solid fa-rotate"></i>
+        Reset All Tabs
+      </button>
+    </div>
+  </section>
+
+  <section class="workspace-canvas" aria-label="Jarri Spooty workspace">
+    <article
+      *ngFor="let panel of workspace.panels; trackBy: renderPanel"
+      class="workspace-panel"
+      [ngClass]="'panel-' + panel.type"
+      [ngStyle]="panelStyle(panel)"
+    >
+      <header class="panel-header" (pointerdown)="beginDrag($event, panel)">
+        <div class="panel-title">
+          <span class="status-light"></span>
+          <strong>{{ panel.title }}</strong>
+        </div>
+
+        <button
+          class="panel-close"
+          type="button"
+          title="Close panel"
+          [disabled]="workspace.panels.length <= 1"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="closePanel(panel.id)"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+
+      <div class="panel-content" [ngSwitch]="panel.type">
+        <section *ngSwitchCase="'source-intake'" class="source-intake-panel">
+          <button
+            class="button auth-button"
+            [class.connected]="spotifyConnected"
+            (click)="connectSpotify()"
+          >
+            <i class="fa-solid" [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"></i>
+            {{ spotifyConnected ? 'Spotify connected' : 'Connect Spotify' }}
+          </button>
+
+          <div class="intake-form">
+            <input
+              class="input"
+              [class.is-danger]="url && !isValidSpotifyUrl"
+              type="text"
+              [(ngModel)]="url"
+              placeholder="Paste Spotify playlist or track URL"
+            />
+            <button
+              class="button is-primary queue-button"
               [class.is-loading]="(createLoading$ | async)?.isLoading"
               (click)="download()"
               [disabled]="!url || !isValidSpotifyUrl"
-      >
-        <i class="fa-solid fa-download"></i> Queue
-      </button>
-    </div>
-    <p *ngIf="url && !isValidSpotifyUrl" class="help is-danger">
-      Please enter a valid Spotify URL.
-    </p>
-  </div>
+            >
+              <i class="fa-solid fa-download"></i>
+              Queue
+            </button>
+          </div>
 
-  <div class="box jarri-box">
-    <div class="is-flex is-justify-content-space-between">
-      <div>
-        <p class="subtitle">Playlist History</p>
-        <p class="has-text-grey is-size-7">One collapsed row per playlist run.</p>
+          <label class="field-label">Archive destination</label>
+          <input
+            class="input"
+            type="text"
+            [(ngModel)]="archiveDestination"
+            (ngModelChange)="saveArchiveDestination()"
+            placeholder="Frontend-planned archive destination"
+          />
+
+          <div class="truth-note">
+            <p>Runtime download root: {{ archiveListing?.root || archiveDestination || 'loading...' }}</p>
+            <p>Per-run destination routing: pending backend support</p>
+          </div>
+
+          <p *ngIf="url && !isValidSpotifyUrl" class="help is-danger">
+            Please enter a valid Spotify URL.
+          </p>
+        </section>
+
+        <section *ngSwitchCase="'queue-observatory'" class="metrics-panel">
+          <ng-container *ngIf="playlists$ | async as playlists">
+            <ng-container *ngIf="songs$ | async as songs">
+              <div class="metric-card">
+                <span>Spotify</span>
+                <strong [class.online]="spotifyConnected">{{ spotifyConnected ? 'Connected' : 'Disconnected' }}</strong>
+              </div>
+              <div class="metric-card">
+                <span>Playlists</span>
+                <strong>{{ playlists.length }}</strong>
+              </div>
+              <div class="metric-card">
+                <span>Single Songs</span>
+                <strong>{{ songs.length }}</strong>
+              </div>
+              <div class="metric-card">
+                <span>Mode</span>
+                <strong>Archive run</strong>
+              </div>
+            </ng-container>
+          </ng-container>
+        </section>
+
+        <section *ngSwitchCase="'playlist-history'" class="history-panel">
+          <div class="section-toolbar">
+            <div>
+              <h2>Playlist History</h2>
+              <p>One collapsed row per playlist run.</p>
+            </div>
+            <div class="buttons has-addons">
+              <button class="button is-outlined is-success" title="Remove completed from list" (click)="deleteCompleted()">
+                <i class="fa-solid fa-check"></i>
+              </button>
+              <button class="button is-outlined is-danger" title="Remove failed from list" (click)="deleteFailed()">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <ng-container *ngIf="playlists$ | async as playlists">
+            <app-playlist-box *ngFor="let playlist of playlists" [playlist]="playlist"></app-playlist-box>
+            <p *ngIf="playlists?.length === 0" class="empty-state">No playlists</p>
+          </ng-container>
+        </section>
+
+        <section *ngSwitchCase="'single-songs'" class="history-panel">
+          <div class="section-toolbar">
+            <div>
+              <h2>Single Songs</h2>
+              <p>Direct Spotify track queue entries.</p>
+            </div>
+          </div>
+
+          <ng-container *ngIf="songs$ | async as songs">
+            <app-playlist-box *ngFor="let playlist of songs" [playlist]="playlist"></app-playlist-box>
+            <p *ngIf="songs?.length === 0" class="empty-state">No songs</p>
+          </ng-container>
+        </section>
+
+        <section *ngSwitchCase="'archive-browser'" class="history-panel">
+          <div class="section-toolbar">
+            <div>
+              <h2>Archive Browser</h2>
+              <p>Root: {{ archiveListing?.root || 'loading...' }}</p>
+            </div>
+            <button class="button is-small reset-button" type="button" [class.is-loading]="archiveLoading" (click)="refreshArchive()">
+              <i class="fa-solid fa-rotate"></i>
+              Refresh
+            </button>
+          </div>
+
+          <p *ngIf="archiveError" class="help is-danger">{{ archiveError }}</p>
+          <ng-container *ngIf="archiveListing as archive">
+            <div class="archive-summary">
+              <div>
+                <strong>{{ archiveFileCount() }}</strong>
+                <span>files</span>
+              </div>
+              <div>
+                <strong>{{ formatBytes(archiveTotalBytes()) }}</strong>
+                <span>total</span>
+              </div>
+              <div>
+                <strong>Read-only</strong>
+                <span>inspection</span>
+              </div>
+            </div>
+
+            <div class="archive-controls">
+              <input
+                class="input is-small"
+                type="search"
+                [(ngModel)]="archiveSearch"
+                placeholder="Search archive"
+              />
+              <div class="select is-small">
+                <select [(ngModel)]="archiveSort" aria-label="Sort archive files">
+                  <option *ngFor="let sortMode of archiveSortModes" [ngValue]="sortMode">
+                    {{ sortMode }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <p *ngIf="archiveFileCount() === 0" class="empty-state">No downloaded files found.</p>
+
+            <section *ngFor="let group of archiveGroups()" class="archive-group">
+              <h3>
+                <i class="fa-solid fa-folder"></i>
+                {{ group.folder }}
+              </h3>
+
+              <div *ngFor="let file of group.files" class="archive-file-card">
+                <i class="fa-solid" [ngClass]="hasFolder(file) ? 'fa-folder-tree' : 'fa-file-audio'"></i>
+                <div>
+                  <strong>{{ file.name }}</strong>
+                  <span>{{ folderPath(file) }}</span>
+                </div>
+                <small>{{ formatBytes(file.sizeBytes) }}</small>
+                <small>{{ formatModifiedAt(file.modifiedAt) }}</small>
+              </div>
+            </section>
+          </ng-container>
+        </section>
+
+        <section *ngSwitchCase="'candidate-inspector'" class="history-panel">
+          <ng-container *ngIf="selectedTrack$ | async as selectedTrack; else noTrackSelected">
+            <div class="section-toolbar">
+              <div>
+                <h2>{{ selectedTrack.artist }} - {{ selectedTrack.name }}</h2>
+                <p>Status: {{ trackStatusLabel(selectedTrack.status) }}</p>
+              </div>
+              <button class="button is-small reset-button" type="button" (click)="clearSelectedTrack()">
+                <i class="fa-solid fa-arrow-left"></i>
+                Back
+              </button>
+            </div>
+
+            <dl class="inspector-list">
+              <dt>Spotify URL</dt>
+              <dd><a [href]="selectedTrack.spotifyUrl" target="_blank">{{ selectedTrack.spotifyUrl || 'none' }}</a></dd>
+              <dt>Status</dt>
+              <dd>{{ trackStatusLabel(selectedTrack.status) }}</dd>
+              <dt>Download attempts</dt>
+              <dd>{{ selectedTrack.downloadAttemptCount || 0 }}</dd>
+              <dt>Error</dt>
+              <dd>{{ selectedTrack.error || 'none' }}</dd>
+            </dl>
+
+            <div class="candidate-options">
+              <strong>Other options</strong>
+              <p *ngIf="selectedTrack.youtubeUrl">
+                Selected candidate:
+                <a [href]="selectedTrack.youtubeUrl" target="_blank">{{ selectedTrack.youtubeUrl }}</a>
+              </p>
+              <p>Rejected candidates: {{ rejectedUrls(selectedTrack).length }}</p>
+              <a *ngFor="let url of rejectedUrls(selectedTrack)" [href]="url" target="_blank">{{ url }}</a>
+              <p *ngIf="!selectedTrack.youtubeUrl && rejectedUrls(selectedTrack).length === 0" class="empty-state">
+                Candidate alternatives are not persisted yet. Future scoring history will appear here.
+              </p>
+            </div>
+          </ng-container>
+
+          <ng-template #noTrackSelected>
+            <div class="placeholder-panel">
+              <i class="fa-solid fa-magnifying-glass-chart"></i>
+              <p>Select a track row inside an expanded playlist to inspect Spotify, YouTube, retry, and error details.</p>
+            </div>
+            <ng-container *ngIf="allTracks$ | async as allTracks">
+              <button
+                *ngFor="let track of allTracks"
+                class="button is-small is-fullwidth reset-button"
+                type="button"
+                (click)="selectTrack(track)"
+              >
+                {{ track.artist }} - {{ track.name }}
+              </button>
+            </ng-container>
+          </ng-template>
+        </section>
       </div>
-      <div class="buttons has-addons">
-        <button class="button is-outlined is-success" title="Remove completed from list" (click)="deleteCompleted()">
-          <i class="fa-solid fa-check"></i>
-        </button>
-        <button class="button is-outlined is-danger" title="Remove failed from list" (click)="deleteFailed()">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-    </div>
 
-    <ng-container *ngIf="playlists$ | async as playlists">
-      <app-playlist-box *ngFor="let playlist of playlists" [playlist]="playlist"></app-playlist-box>
-      <p *ngIf="playlists?.length === 0" class="has-text-grey has-text-centered">No playlists</p>
-    </ng-container>
-  </div>
-
-  <div class="box jarri-box">
-    <p class="subtitle">Single Songs</p>
-    <ng-container *ngIf="songs$ | async as songs">
-      <app-playlist-box *ngFor="let playlist of songs" [playlist]="playlist"></app-playlist-box>
-      <p *ngIf="songs?.length === 0" class="has-text-grey has-text-centered">No songs</p>
-    </ng-container>
-  </div>
-</section>
+      <span
+        class="resize-handle"
+        title="Resize panel"
+        (pointerdown)="beginResize($event, panel)"
+      ></span>
+    </article>
+  </section>
+</main>

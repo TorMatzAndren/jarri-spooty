@@ -12,3 +12,114 @@ body {
   padding: 0;
   margin: 0;
 }
+
+.workspace-tabs {
+  position: sticky;
+  top: 76px;
+  z-index: 19;
+  display: flex;
+  gap: 6px;
+  padding: 8px 24px 0;
+  background: rgba(8, 15, 15, 0.94);
+  border-bottom: 1px solid rgba(126, 255, 180, 0.12);
+}
+
+.workspace-tab {
+  min-width: 116px;
+  padding: 9px 14px;
+  border: 1px solid rgba(126, 255, 180, 0.18);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: #bcd1c4;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.workspace-tab.active {
+  background: #14211d;
+  color: #9fffc3;
+}
+
+.archive-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.archive-summary div,
+.archive-file-card {
+  border: 1px solid rgba(126, 255, 180, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.archive-summary div {
+  padding: 10px;
+}
+
+.archive-summary span,
+.archive-file-card span,
+.archive-file-card small {
+  display: block;
+  color: #9db0a6;
+  overflow-wrap: anywhere;
+}
+
+.archive-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.archive-group h3 {
+  margin: 12px 0 6px;
+  color: #f1fff5;
+  font-size: 0.9rem;
+}
+
+.archive-file-card {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 8px;
+}
+
+.archive-file-card i {
+  color: #9fffc3;
+}
+
+.inspector-list {
+  margin: 0;
+}
+
+.inspector-list dt,
+.candidate-options strong {
+  color: #f1fff5;
+  font-weight: 800;
+}
+
+.inspector-list dd {
+  margin: 0 0 8px;
+}
+
+.candidate-options {
+  display: grid;
+  gap: 6px;
+  color: #bcd1c4;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .workspace-tabs {
+    position: static;
+    padding: 8px 14px 0;
+    overflow-x: auto;
+  }
+
+  .archive-file-card {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+}

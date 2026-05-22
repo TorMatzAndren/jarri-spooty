@@ -20,6 +20,10 @@ enum WsTrackOperation {
   Delete = 'trackDelete',
 }
 
+type ClientTrack = Omit<Partial<TrackEntity>, 'rejectedYoutubeUrls'> & {
+  rejectedYoutubeUrls?: string[];
+};
+
 @WebSocketGateway()
 @Injectable()
 export class TrackService {
@@ -56,13 +60,14 @@ export class TrackService {
     this.io.emit(WsTrackOperation.Delete, { id });
   }
 
-  private toClientTrack(track: TrackEntity): Partial<TrackEntity> {
+  private toClientTrack(track: TrackEntity): ClientTrack {
     return {
       id: track.id,
       artist: track.artist,
       name: track.name,
       spotifyUrl: track.spotifyUrl,
       youtubeUrl: track.youtubeUrl,
+      rejectedYoutubeUrls: this.parseRejectedYoutubeUrls(track),
       downloadAttemptCount: track.downloadAttemptCount,
       status: track.status,
       error: track.error,

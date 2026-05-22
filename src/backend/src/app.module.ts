@@ -14,6 +14,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './shared/auth.guard';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ArchiveModule } from './archive/archive.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     }),
     TrackModule,
     PlaylistModule,
+    ArchiveModule,
   ],
   controllers: [AppController],
   providers: [

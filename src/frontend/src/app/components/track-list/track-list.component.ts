@@ -30,4 +30,8 @@ export class TrackListComponent {
   retry(id: number): void {
     this.service.retry(id);
   }
+
+  select(track: Track): void {
+    this.service.select(track);
+  }
 }

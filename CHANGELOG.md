@@ -10,6 +10,49 @@ This project follows a practical chronological changelog rather than autogenerat
 
 ## Added
 
+- Added Workspace tabs for Intake, Archive, and Diagnostics.
+- Added per-tab frontend layout persistence with migration from the old single workspace layout into Intake.
+- Added reset current tab and reset all tabs controls.
+- Added Candidate Inspector Back/Clear selection action.
+- Added Candidate Inspector selected candidate and honest alternative-state messaging.
+- Added Archive Browser file-browser view with file icons, root summary, file count, total size, search, sort, and top-level folder grouping.
+
+## Changed
+
+- Kept Archive Browser read-only; no arbitrary browsing, delete, move, rename, or open-file operations were added.
+
+---
+
+# 3.0.0
+
+## Added
+
+- Added ChronoGit-style draggable/resizable Workspace UI panels.
+- Added Workspace localStorage persistence and reset layout control.
+- Added Source Intake Archive destination field persisted in frontend localStorage.
+- Added truthful Source Intake runtime messaging for `DOWNLOADS_PATH` and pending per-run destination routing.
+- Added Archive Browser MVP with a refreshable file list.
+- Added scoped read-only `GET /api/archive` listing for files inside the configured downloads root.
+- Added Candidate Inspector MVP for selected track details.
+- Added selected-track behavior in track rows.
+- Added rejected YouTube candidate display when rejected URLs are available.
+
+## Changed
+
+- Bumped visible, root, backend, frontend, and lockfile package versions to 3.0.0.
+- Kept existing playlist, track, retry, delete, Spotify OAuth, queue, download, and yt-dlp behavior intact.
+
+## Pending
+
+- Per-run archive destination routing is still pending backend support.
+- Candidate scoring history is not exposed yet; the inspector shows current stored track state and rejected URLs.
+
+---
+
+# 2.4.2 Hardened Workspace Foundation
+
+## Added
+
 ### Spotify
 
 - Added Spotify OAuth login flow
