@@ -1,11 +1,11 @@
 # Jarri Spooty
 
-Self-hosted Spotify playlist and track downloader built with NestJS + Angular.
+Deterministic media ingestion workspace for Spotify metadata and YouTube archival.
 
-Jarri Spooty does not download audio from Spotify itself.  
+![Jarri Spooty Workspace v3](docs/images/jarri-spooty-workspace-v3.png)
+
+Spooty does not download audio from Spotify itself.
 It retrieves metadata from Spotify and locates matching audio on YouTube.
-
-![Jarri Spooty Demo](docs/images/jarri-spooty-demo.png)
 
 Deterministic Spotify metadata ingestion with duration-aware YouTube candidate scoring, paced queue execution, hardened Docker deployment, and local archival workflows.
 
