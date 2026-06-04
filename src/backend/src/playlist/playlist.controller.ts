@@ -12,6 +12,7 @@ import { PlaylistService } from './playlist.service';
 import { PlaylistEntity } from './playlist.entity';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
+import { SearchTrackDto } from './dto/search-track.dto';
 
 @Controller('playlist')
 export class PlaylistController {
@@ -25,6 +26,13 @@ export class PlaylistController {
   @Post()
   async create(@Body() playlist: CreatePlaylistDto): Promise<void> {
     await this.service.create(playlist as PlaylistEntity);
+  }
+
+  @Post('search-track')
+  async searchTrack(
+    @Body() body: SearchTrackDto,
+  ): Promise<{ spotifyUrl: string; name: string; artist: string }> {
+    return this.service.createFromSearch(body.artist, body.title);
   }
 
   @Put(':id')

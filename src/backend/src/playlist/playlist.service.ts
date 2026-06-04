@@ -48,6 +48,27 @@ export class PlaylistService {
     this.io.emit(WsPlaylistOperation.Delete, { id });
   }
 
+
+  async createFromSearch(
+    artist: string,
+    title: string,
+  ): Promise<{ spotifyUrl: string; name: string; artist: string }> {
+    const track = await this.spotifyService.searchTrack(artist, title);
+
+    await this.create({
+      spotifyUrl: track.spotifyUrl,
+      name: track.name,
+      active: false,
+      isTrack: true,
+    } as PlaylistEntity);
+
+    return {
+      spotifyUrl: track.spotifyUrl,
+      name: track.name,
+      artist: track.artist,
+    };
+  }
+
   async create(playlist: PlaylistEntity): Promise<void> {
     // Detect if URL is for a single track or a playlist and route accordingly
     const isTrack = this.spotifyService.isTrackUrl(playlist.spotifyUrl);
@@ -63,7 +84,7 @@ export class PlaylistService {
   }
 
   private async createSingleTrack(playlist: PlaylistEntity): Promise<void> {
-    let trackDetail: { name: string; artist: string; image: string };
+    let trackDetail: { name: string; artist: string; image: string; durationMs?: number };
     let playlist2Save: PlaylistEntity;
     try {
       trackDetail = await this.spotifyService.getTrackDetail(
@@ -97,6 +118,7 @@ export class PlaylistService {
             name: trackDetail.name,
             spotifyUrl: playlist.spotifyUrl,
             coverUrl: trackDetail.image,
+            durationMs: trackDetail.durationMs,
           },
           savedPlaylist,
         );

@@ -151,7 +151,7 @@ export class SpotifyApiService {
     return !!this.readUserToken();
   }
 
-  getAuthorizationUrl(): string {
+  getAuthorizationUrl(state?: string): string {
     const url = new URL('https://accounts.spotify.com/authorize');
 
     url.searchParams.set('response_type', 'code');
@@ -166,6 +166,10 @@ export class SpotifyApiService {
     );
     url.searchParams.set('redirect_uri', this.getRedirectUri());
     url.searchParams.set('show_dialog', 'true');
+
+    if (state) {
+      url.searchParams.set('state', state);
+    }
 
     return url.toString();
   }
@@ -334,6 +338,85 @@ export class SpotifyApiService {
       this.logger.error(`Error getting Spotify access token: ${error.message}`);
       throw error;
     }
+  }
+
+
+  async searchTrack(
+    artist: string,
+    title: string,
+  ): Promise<{ spotifyUrl: string; name: string; artist: string; image: string; durationMs?: number }> {
+    const accessToken = await this.getClientCredentialsAccessToken();
+    const plainQuery = `${artist} ${title}`.trim();
+    const structuredQuery = `track:"${title}" artist:"${artist}"`;
+
+    const url = new URL('https://api.spotify.com/v1/search');
+    url.searchParams.set('q', structuredQuery || plainQuery);
+    url.searchParams.set('type', 'track');
+    url.searchParams.set('limit', '10');
+
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Spotify track search failed: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    const tracks = data?.tracks?.items || [];
+
+    if (!tracks.length) {
+      throw new Error(`No Spotify track found for ${artist} - ${title}`);
+    }
+
+    const normalize = (value: string) =>
+      (value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const wantedArtist = normalize(artist);
+    const wantedTitle = normalize(title);
+
+    const scoreTrack = (track: any): number => {
+      const trackName = normalize(track.name);
+      const artistNames = (track.artists || []).map((item: any) => normalize(item.name));
+      const allArtists = artistNames.join(' ');
+
+      let score = 0;
+      if (trackName === wantedTitle) score += 70;
+      else if (trackName.includes(wantedTitle) || wantedTitle.includes(trackName)) score += 40;
+
+      if (artistNames.some((name: string) => name === wantedArtist)) score += 50;
+      else if (allArtists.includes(wantedArtist) || wantedArtist.includes(allArtists)) score += 25;
+
+      if (track.explicit !== undefined) score += 1;
+      if (track.popularity) score += Math.min(20, Math.floor(track.popularity / 5));
+
+      return score;
+    };
+
+    const ranked = [...tracks]
+      .map((track: any) => ({ track, score: scoreTrack(track) }))
+      .sort((a, b) => b.score - a.score);
+
+    const best = ranked[0]?.track || tracks[0];
+
+    this.logger.debug(
+      `Spotify search "${plainQuery}" selected "${best?.artists?.map((item: any) => item.name).join(', ')} - ${best?.name}" score=${ranked[0]?.score ?? 0}`,
+    );
+
+    return {
+      spotifyUrl: best.external_urls.spotify,
+      name: best.name,
+      artist: (best.artists || []).map((item: any) => item.name).join(', '),
+      image: best.album?.images?.[0]?.url || '',
+      durationMs: best.duration_ms,
+    };
   }
 
   async getAllPlaylistTracks(spotifyUrl: string): Promise<any[]> {

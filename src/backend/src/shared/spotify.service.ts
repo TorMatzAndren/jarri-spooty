@@ -72,6 +72,14 @@ export class SpotifyService {
     return this.spotifyApiService.getArtistLibrary(spotifyUrl);
   }
 
+
+  async searchTrack(
+    artist: string,
+    title: string,
+  ): Promise<{ spotifyUrl: string; name: string; artist: string; image: string; durationMs?: number }> {
+    return this.spotifyApiService.searchTrack(artist, title);
+  }
+
   async getPlaylistTracks(spotifyUrl: string): Promise<any[]> {
     this.logger.debug(`Get playlist ${spotifyUrl} on Spotify`);
     try {

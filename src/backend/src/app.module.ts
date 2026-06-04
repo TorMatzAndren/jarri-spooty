@@ -49,7 +49,7 @@ import { ArchiveModule } from './archive/archive.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 60,
+        limit: Number(process.env.API_THROTTLE_LIMIT || 600),
       },
     ]),
     BullModule.forRootAsync({

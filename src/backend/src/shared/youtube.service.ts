@@ -38,6 +38,19 @@ const BAD_MATCH_TERMS = [
   'reaction',
   'tutorial',
   'instrumental',
+  'reaction',
+  'review',
+  'analysis',
+  'breakdown',
+  'explained',
+  'secret message',
+  'meaning',
+  'interview',
+  'podcast',
+  'news',
+  'documentary',
+  'fifa world cup',
+  'song style',
 ];
 
 const OFFICIALISH_TERMS = [
@@ -123,11 +136,12 @@ export class YoutubeService {
           .join(' | '),
     );
 
-    const accepted = candidates.find((candidate) => !candidate.rejected);
+    const minimumScore = Number(process.env.YT_MIN_CANDIDATE_SCORE || 60);
+    const accepted = candidates.find((candidate) => !candidate.rejected && candidate.score >= minimumScore);
 
     if (!accepted) {
       throw new Error(
-        `No acceptable YouTube result found for: ${query}` +
+        `No acceptable YouTube result found for: ${query} with minimum score ${minimumScore}` +
           (excludedUrls.length ? ` after excluding ${excludedUrls.length} failed candidate(s)` : ''),
       );
     }
@@ -143,11 +157,12 @@ export class YoutubeService {
     const searchTarget = `ytsearch15:${query}`;
     const args = [
       '--dump-single-json',
-      '--flat-playlist',
       '--skip-download',
       '--no-playlist',
       '--no-cache-dir',
       '--no-cookies-from-browser',
+      '--extractor-args',
+      'youtube:player_client=android_vr',
       '--add-header',
       `User-Agent:${HEADERS['User-Agent']}`,
       searchTarget,
@@ -198,6 +213,7 @@ export class YoutubeService {
     const author = String(video.author?.name || video.author || '');
     const url = String(video.url || '');
     const seconds = this.getVideoSeconds(video);
+    this.logger.debug(`YT candidate raw duration title="${title}" duration=${video.duration} seconds=${video.seconds} parsed=${seconds}`);
 
     const normalizedTitle = this.normalize(title);
     const normalizedAuthor = this.normalize(author);
@@ -213,12 +229,19 @@ export class YoutubeService {
       reasons.push('title=45');
     }
 
+    let hasArtistSignal = false;
     for (const artistPart of this.artistParts(normalizedArtist)) {
       if (artistPart.length >= 3 && (normalizedTitle.includes(artistPart) || normalizedAuthor.includes(artistPart))) {
         score += 20;
         reasons.push(`artist=${artistPart}:20`);
+        hasArtistSignal = true;
         break;
       }
+    }
+
+    if (!hasArtistSignal) {
+      score -= 35;
+      reasons.push('artist=missing:-35');
     }
 
     const officialish = OFFICIALISH_TERMS.find((term) =>
@@ -233,8 +256,9 @@ export class YoutubeService {
       normalizedTitle.includes(this.normalize(term)),
     );
     if (badTerm) {
-      score -= 25;
-      reasons.push(`bad=${badTerm}:-25`);
+      score -= 80;
+      rejected = true;
+      reasons.push(`bad=${badTerm}:-80 reject`);
     }
 
     if (durationMs && seconds) {
@@ -495,6 +519,8 @@ export class YoutubeService {
       '--no-playlist',
       '--no-cache-dir',
       '--no-cookies-from-browser',
+      '-f',
+      'bestaudio/best',
       '--extract-audio',
       '--audio-format',
       format,

@@ -320,7 +320,8 @@ export class TrackService {
     const safeArtist = track.artist || 'unknown_artist';
     const safeName = track.name || 'unknown_track';
     const fileName = `${safeArtist} - ${safeName}`;
-    return `${this.utilsService.stripFileIllegalChars(fileName)}.${this.configService.get<string>(EnvironmentEnum.FORMAT)}`;
+    const format = this.configService.get<string>(EnvironmentEnum.FORMAT) || 'mp3';
+    return `${this.utilsService.stripFileIllegalChars(fileName)}.${format}`;
   }
 
   getFolderName(track: TrackEntity, playlist: PlaylistEntity): string {
