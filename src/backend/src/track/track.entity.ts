@@ -27,6 +27,18 @@ export class TrackEntity {
   @Column({ nullable: true })
   youtubeUrl?: string;
 
+  @Column({ nullable: true })
+  selectedYoutubeTitle?: string;
+
+  @Column({ nullable: true })
+  selectedYoutubeAuthor?: string;
+
+  @Column({ nullable: true })
+  selectedYoutubeScore?: number;
+
+  @Column({ nullable: true, type: 'text' })
+  selectedYoutubeReason?: string;
+
   @Column({ nullable: true, type: 'text' })
   rejectedYoutubeUrls?: string;
 

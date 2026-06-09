@@ -176,6 +176,25 @@ export class OperationsService {
       status: TrackStatusEnum[track.status] || String(track.status),
       ...(track.spotifyUrl ? { spotifyUrl: track.spotifyUrl } : {}),
       ...(track.youtubeUrl ? { youtubeUrl: track.youtubeUrl } : {}),
+      ...(track.youtubeUrl
+        ? {
+            selectedCandidate: {
+              url: track.youtubeUrl,
+              ...(track.selectedYoutubeTitle
+                ? { title: track.selectedYoutubeTitle }
+                : {}),
+              ...(track.selectedYoutubeAuthor
+                ? { author: track.selectedYoutubeAuthor }
+                : {}),
+              ...(typeof track.selectedYoutubeScore === 'number'
+                ? { score: track.selectedYoutubeScore }
+                : {}),
+              ...(track.selectedYoutubeReason
+                ? { reason: track.selectedYoutubeReason }
+                : {}),
+            },
+          }
+        : {}),
       ...(typeof track.downloadAttemptCount === 'number'
         ? { downloadAttemptCount: track.downloadAttemptCount }
         : {}),

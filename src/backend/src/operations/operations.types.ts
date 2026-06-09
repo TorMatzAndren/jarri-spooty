@@ -23,6 +23,13 @@ export interface TrackTruth {
   status: string;
   spotifyUrl?: string;
   youtubeUrl?: string;
+  selectedCandidate?: {
+    url: string;
+    title?: string;
+    author?: string;
+    score?: number;
+    reason?: string;
+  };
   downloadAttemptCount?: number;
   errorClass?: ErrorClass;
   errorSummary?: string;

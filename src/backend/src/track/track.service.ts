@@ -98,7 +98,9 @@ export class TrackService {
 
     try {
       const parsed = JSON.parse(track.rejectedYoutubeUrls);
-      return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
+      return Array.isArray(parsed)
+        ? parsed.filter((item) => typeof item === 'string')
+        : [];
     } catch {
       return [];
     }
@@ -125,6 +127,10 @@ export class TrackService {
     await this.update(id, {
       ...track,
       youtubeUrl: null,
+      selectedYoutubeTitle: null,
+      selectedYoutubeAuthor: null,
+      selectedYoutubeScore: null,
+      selectedYoutubeReason: null,
       rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
       downloadAttemptCount: 0,
       error: null,
@@ -161,6 +167,10 @@ export class TrackService {
       updatedTrack = {
         ...track,
         youtubeUrl: youtubeMatch.url,
+        selectedYoutubeTitle: youtubeMatch.title,
+        selectedYoutubeAuthor: youtubeMatch.author,
+        selectedYoutubeScore: youtubeMatch.score,
+        selectedYoutubeReason: youtubeMatch.reason,
         status: TrackStatusEnum.Queued,
       };
       this.logger.debug(
@@ -193,7 +203,9 @@ export class TrackService {
     const existingJob = await this.trackSearchQueue.getJob(jobId);
 
     if (existingJob) {
-      this.logger.warn(`Removing existing search job for track ${id} before enqueue`);
+      this.logger.warn(
+        `Removing existing search job for track ${id} before enqueue`,
+      );
       await existingJob.remove();
     }
 
@@ -212,7 +224,9 @@ export class TrackService {
     const existingJob = await this.trackDownloadQueue.getJob(jobId);
 
     if (existingJob) {
-      this.logger.warn(`Removing existing download job for track ${id} before enqueue`);
+      this.logger.warn(
+        `Removing existing download job for track ${id} before enqueue`,
+      );
       await existingJob.remove();
     }
 
@@ -296,6 +310,10 @@ export class TrackService {
       await this.update(track.id, {
         ...track,
         youtubeUrl: null,
+        selectedYoutubeTitle: null,
+        selectedYoutubeAuthor: null,
+        selectedYoutubeScore: null,
+        selectedYoutubeReason: null,
         rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
         downloadAttemptCount: nextAttemptCount,
         error: null,
@@ -320,7 +338,8 @@ export class TrackService {
     const safeArtist = track.artist || 'unknown_artist';
     const safeName = track.name || 'unknown_track';
     const fileName = `${safeArtist} - ${safeName}`;
-    const format = this.configService.get<string>(EnvironmentEnum.FORMAT) || 'mp3';
+    const format =
+      this.configService.get<string>(EnvironmentEnum.FORMAT) || 'mp3';
     return `${this.utilsService.stripFileIllegalChars(fileName)}.${format}`;
   }
 
