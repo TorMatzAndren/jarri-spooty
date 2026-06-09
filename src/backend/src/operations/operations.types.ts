@@ -16,6 +16,27 @@ export type ErrorClass =
   | 'FILE_WRITE_FAILED'
   | 'UNKNOWN_DOWNLOAD_ERROR';
 
+export type RejectionClass =
+  | 'DOWNLOAD_FAILED'
+  | 'YOUTUBE_VIDEO_UNAVAILABLE'
+  | 'YOUTUBE_AGE_GATED'
+  | 'YOUTUBE_NO_FORMATS'
+  | 'YOUTUBE_PRIVATE_VIDEO'
+  | 'YOUTUBE_EXTRACTION_FAILURE'
+  | 'UNKNOWN_DOWNLOAD_ERROR'
+  | 'MANUAL_RETRY';
+
+export interface RejectedCandidateTruth {
+  url: string;
+  title?: string;
+  author?: string;
+  score?: number;
+  reason?: string;
+  rejectionClass?: RejectionClass;
+  rejectionSummary?: string;
+  rejectedAt?: string;
+}
+
 export interface TrackTruth {
   id: number;
   artist: string;
@@ -35,7 +56,7 @@ export interface TrackTruth {
   errorSummary?: string;
   errorDetail?: string;
   rejectedCandidateCount: number;
-  rejectedCandidates: string[];
+  rejectedCandidates: RejectedCandidateTruth[];
 }
 
 export interface FailureTruth extends TrackTruth {}

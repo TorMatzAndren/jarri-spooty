@@ -42,6 +42,9 @@ export class TrackEntity {
   @Column({ nullable: true, type: 'text' })
   rejectedYoutubeUrls?: string;
 
+  @Column({ nullable: true, type: 'text' })
+  rejectedYoutubeCandidatesJson?: string;
+
   @Column({ default: 0 })
   downloadAttemptCount?: number;
 

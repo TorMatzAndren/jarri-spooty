@@ -24,6 +24,32 @@ type ClientTrack = Omit<Partial<TrackEntity>, 'rejectedYoutubeUrls'> & {
   rejectedYoutubeUrls?: string[];
 };
 
+type RejectionClass =
+  | 'DOWNLOAD_FAILED'
+  | 'YOUTUBE_VIDEO_UNAVAILABLE'
+  | 'YOUTUBE_AGE_GATED'
+  | 'YOUTUBE_NO_FORMATS'
+  | 'YOUTUBE_PRIVATE_VIDEO'
+  | 'YOUTUBE_EXTRACTION_FAILURE'
+  | 'UNKNOWN_DOWNLOAD_ERROR'
+  | 'MANUAL_RETRY';
+
+interface RejectedYoutubeCandidate {
+  url: string;
+  title?: string;
+  author?: string;
+  score?: number;
+  reason?: string;
+  rejectionClass?: RejectionClass;
+  rejectionSummary?: string;
+  rejectedAt: string;
+}
+
+interface RejectionReason {
+  rejectionClass: RejectionClass;
+  rejectionSummary: string;
+}
+
 @WebSocketGateway()
 @Injectable()
 export class TrackService {
@@ -110,6 +136,161 @@ export class TrackService {
     return JSON.stringify([...new Set(urls)].slice(0, 20));
   }
 
+  private parseRejectedYoutubeCandidates(
+    track: TrackEntity,
+  ): RejectedYoutubeCandidate[] {
+    if (!track.rejectedYoutubeCandidatesJson) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(track.rejectedYoutubeCandidatesJson);
+      return Array.isArray(parsed)
+        ? parsed.filter(
+            (item): item is RejectedYoutubeCandidate =>
+              !!item &&
+              typeof item === 'object' &&
+              typeof item.url === 'string' &&
+              typeof item.rejectedAt === 'string',
+          )
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private stringifyRejectedYoutubeCandidates(
+    candidates: RejectedYoutubeCandidate[],
+  ): string {
+    const byUrl = new Map<string, RejectedYoutubeCandidate>();
+
+    for (const candidate of candidates) {
+      if (candidate.url) {
+        byUrl.set(candidate.url, candidate);
+      }
+    }
+
+    return JSON.stringify([...byUrl.values()].slice(-20));
+  }
+
+  private buildRejectedYoutubeCandidate(
+    track: TrackEntity,
+    reason: RejectionReason,
+  ): RejectedYoutubeCandidate | null {
+    if (!track.youtubeUrl) {
+      return null;
+    }
+
+    return {
+      url: track.youtubeUrl,
+      ...(track.selectedYoutubeTitle
+        ? { title: track.selectedYoutubeTitle }
+        : {}),
+      ...(track.selectedYoutubeAuthor
+        ? { author: track.selectedYoutubeAuthor }
+        : {}),
+      ...(typeof track.selectedYoutubeScore === 'number'
+        ? { score: track.selectedYoutubeScore }
+        : {}),
+      ...(track.selectedYoutubeReason
+        ? { reason: track.selectedYoutubeReason }
+        : {}),
+      ...reason,
+      rejectedAt: new Date().toISOString(),
+    };
+  }
+
+  private rejectCurrentYoutubeCandidate(
+    track: TrackEntity,
+    reason: RejectionReason,
+  ): {
+    rejectedYoutubeUrls: string;
+    rejectedYoutubeCandidatesJson: string;
+  } {
+    const rejectedUrls = this.parseRejectedYoutubeUrls(track);
+    const rejectedCandidates = this.parseRejectedYoutubeCandidates(track);
+    const rejectedCandidate = this.buildRejectedYoutubeCandidate(track, reason);
+
+    if (rejectedCandidate) {
+      if (!rejectedUrls.includes(rejectedCandidate.url)) {
+        rejectedUrls.push(rejectedCandidate.url);
+      }
+
+      rejectedCandidates.push(rejectedCandidate);
+    }
+
+    return {
+      rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
+      rejectedYoutubeCandidatesJson:
+        this.stringifyRejectedYoutubeCandidates(rejectedCandidates),
+    };
+  }
+
+  private classifyRejection(error?: string): RejectionReason {
+    if (!error) {
+      return {
+        rejectionClass: 'UNKNOWN_DOWNLOAD_ERROR',
+        rejectionSummary: 'Unknown download error',
+      };
+    }
+
+    const normalized = error.toLowerCase();
+
+    if (normalized.includes('sign in to confirm your age')) {
+      return {
+        rejectionClass: 'YOUTUBE_AGE_GATED',
+        rejectionSummary: 'YouTube video is age-gated',
+      };
+    }
+
+    if (normalized.includes('private video')) {
+      return {
+        rejectionClass: 'YOUTUBE_PRIVATE_VIDEO',
+        rejectionSummary: 'YouTube video is private',
+      };
+    }
+
+    if (
+      normalized.includes('only images are available') ||
+      normalized.includes('requested format is not available') ||
+      normalized.includes('no downloadable audio/video formats')
+    ) {
+      return {
+        rejectionClass: 'YOUTUBE_NO_FORMATS',
+        rejectionSummary: 'No downloadable YouTube audio format',
+      };
+    }
+
+    if (
+      normalized.includes('video unavailable') ||
+      normalized.includes('this video is not available') ||
+      normalized.includes('selected video unavailable')
+    ) {
+      return {
+        rejectionClass: 'YOUTUBE_VIDEO_UNAVAILABLE',
+        rejectionSummary: 'YouTube video is unavailable',
+      };
+    }
+
+    if (
+      normalized.includes('failed to parse yt-dlp search output') ||
+      normalized.includes('yt-dlp exited with code') ||
+      normalized.includes('failed to start yt-dlp') ||
+      normalized.includes('yt-dlp exceeded maximum runtime') ||
+      normalized.includes('unable to download webpage')
+    ) {
+      return {
+        rejectionClass: 'YOUTUBE_EXTRACTION_FAILURE',
+        rejectionSummary: 'YouTube extraction failed',
+      };
+    }
+
+    return {
+      rejectionClass: 'DOWNLOAD_FAILED',
+      rejectionSummary: 'Download failed',
+    };
+  }
+
   async retry(id: number): Promise<void> {
     const track = await this.get(id);
 
@@ -118,11 +299,10 @@ export class TrackService {
       return;
     }
 
-    const rejectedUrls = this.parseRejectedYoutubeUrls(track);
-
-    if (track.youtubeUrl && !rejectedUrls.includes(track.youtubeUrl)) {
-      rejectedUrls.push(track.youtubeUrl);
-    }
+    const rejectedCandidateFields = this.rejectCurrentYoutubeCandidate(track, {
+      rejectionClass: 'MANUAL_RETRY',
+      rejectionSummary: 'Rejected by manual retry',
+    });
 
     await this.update(id, {
       ...track,
@@ -131,7 +311,7 @@ export class TrackService {
       selectedYoutubeAuthor: null,
       selectedYoutubeScore: null,
       selectedYoutubeReason: null,
-      rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
+      ...rejectedCandidateFields,
       downloadAttemptCount: 0,
       error: null,
       status: TrackStatusEnum.New,
@@ -293,13 +473,17 @@ export class TrackService {
       error = toSafeErrorMessage(err);
     }
 
-    const rejectedUrls = this.parseRejectedYoutubeUrls(track);
     const nextAttemptCount = (track.downloadAttemptCount || 0) + 1;
     const maxAttempts = this.getMaxDownloadAttempts();
-
-    if (error && track.youtubeUrl && !rejectedUrls.includes(track.youtubeUrl)) {
-      rejectedUrls.push(track.youtubeUrl);
-    }
+    const rejectedCandidateFields = error
+      ? this.rejectCurrentYoutubeCandidate(track, this.classifyRejection(error))
+      : {
+          rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(
+            this.parseRejectedYoutubeUrls(track),
+          ),
+          rejectedYoutubeCandidatesJson:
+            track.rejectedYoutubeCandidatesJson || JSON.stringify([]),
+        };
 
     if (error && nextAttemptCount < maxAttempts) {
       this.logger.warn(
@@ -314,7 +498,7 @@ export class TrackService {
         selectedYoutubeAuthor: null,
         selectedYoutubeScore: null,
         selectedYoutubeReason: null,
-        rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
+        ...rejectedCandidateFields,
         downloadAttemptCount: nextAttemptCount,
         error: null,
         status: TrackStatusEnum.New,
@@ -327,7 +511,7 @@ export class TrackService {
     const updatedTrack = {
       ...track,
       status: error ? TrackStatusEnum.Error : TrackStatusEnum.Completed,
-      rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(rejectedUrls),
+      ...rejectedCandidateFields,
       downloadAttemptCount: error ? nextAttemptCount : 0,
       ...(error ? { error } : { error: null }),
     };

@@ -10,6 +10,7 @@ import {
   ErrorClass,
   FailureTruth,
   OperationsSnapshot,
+  RejectedCandidateTruth,
   SpootyOperation,
   TrackTruth,
 } from './operations.types';
@@ -204,7 +205,15 @@ export class OperationsService {
     };
   }
 
-  private parseRejectedCandidates(track: TrackEntity): string[] {
+  private parseRejectedCandidates(
+    track: TrackEntity,
+  ): RejectedCandidateTruth[] {
+    const structured = this.parseRejectedCandidateJson(track);
+
+    if (structured.length) {
+      return structured;
+    }
+
     if (!track.rejectedYoutubeUrls) {
       return [];
     }
@@ -212,7 +221,52 @@ export class OperationsService {
     try {
       const parsed = JSON.parse(track.rejectedYoutubeUrls);
       return Array.isArray(parsed)
-        ? parsed.filter((item) => typeof item === 'string')
+        ? parsed
+            .filter((item) => typeof item === 'string')
+            .map((url) => ({ url }))
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private parseRejectedCandidateJson(
+    track: TrackEntity,
+  ): RejectedCandidateTruth[] {
+    if (!track.rejectedYoutubeCandidatesJson) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(track.rejectedYoutubeCandidatesJson);
+      return Array.isArray(parsed)
+        ? parsed
+            .filter(
+              (item) =>
+                !!item &&
+                typeof item === 'object' &&
+                typeof item.url === 'string',
+            )
+            .map((item) => ({
+              url: item.url,
+              ...(typeof item.title === 'string' ? { title: item.title } : {}),
+              ...(typeof item.author === 'string'
+                ? { author: item.author }
+                : {}),
+              ...(typeof item.score === 'number' ? { score: item.score } : {}),
+              ...(typeof item.reason === 'string'
+                ? { reason: item.reason }
+                : {}),
+              ...(typeof item.rejectionClass === 'string'
+                ? { rejectionClass: item.rejectionClass }
+                : {}),
+              ...(typeof item.rejectionSummary === 'string'
+                ? { rejectionSummary: item.rejectionSummary }
+                : {}),
+              ...(typeof item.rejectedAt === 'string'
+                ? { rejectedAt: item.rejectedAt }
+                : {}),
+            }))
         : [];
     } catch {
       return [];
