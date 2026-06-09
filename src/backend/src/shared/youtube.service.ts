@@ -404,8 +404,8 @@ export class YoutubeService {
       return 'YouTube unavailable: private video';
     }
 
-    if (text.includes('Video unavailable')) {
-      return 'YouTube unavailable';
+    if (text.includes('Video unavailable') || text.includes('This video is not available')) {
+      return 'YouTube unavailable: selected video unavailable';
     }
 
     if (text.includes('Unable to download webpage')) {

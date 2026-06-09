@@ -15,6 +15,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './shared/auth.guard';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ArchiveModule } from './archive/archive.module';
+import { OperationsModule } from './operations/operations.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { ArchiveModule } from './archive/archive.module';
     TrackModule,
     PlaylistModule,
     ArchiveModule,
+    OperationsModule,
   ],
   controllers: [AppController],
   providers: [
