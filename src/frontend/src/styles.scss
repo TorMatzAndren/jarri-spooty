@@ -112,6 +112,62 @@ body {
   overflow-wrap: anywhere;
 }
 
+.candidate-card {
+  display: block;
+  padding: 10px;
+  border: 1px solid rgba(126, 255, 180, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.candidate-card,
+.candidate-card dl {
+  margin: 0;
+}
+
+.candidate-card dt {
+  color: #f1fff5;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.candidate-card dd {
+  margin: 0 0 8px;
+  color: #bcd1c4;
+  overflow-wrap: anywhere;
+}
+
+.candidate-card dd:last-child {
+  margin-bottom: 0;
+}
+
+.rejected-candidate-card {
+  border-color: rgba(255, 214, 102, 0.18);
+}
+
+.truth-detail summary {
+  color: #9fffc3;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.truth-detail pre {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid rgba(126, 255, 180, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #dceee4;
+  font-size: 0.78rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.empty-state.compact {
+  padding: 10px;
+}
+
 @media (max-width: 900px) {
   .workspace-tabs {
     position: static;

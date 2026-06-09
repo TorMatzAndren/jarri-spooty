@@ -1,18 +1,27 @@
-import {Component, OnDestroy} from '@angular/core';
-import {FormsModule} from "@angular/forms";
-import {CommonModule, NgFor} from "@angular/common";
-import {PlaylistService, PlaylistStatusEnum} from "./services/playlist.service";
-import {PlaylistBoxComponent} from "./components/playlist-box/playlist-box.component";
-import {VersionService} from "./services/version.service";
-import {map} from "rxjs";
-import {HttpClient} from "@angular/common/http";
-import {ArchiveService} from "./services/archive.service";
-import {ArchiveFile, ArchiveListing} from "./models/archive";
-import {Track, TrackStatusEnum} from "./models/track";
-import {TrackService} from "./services/track.service";
+import { Component, OnDestroy } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { CommonModule, NgFor } from '@angular/common';
+import {
+  PlaylistService,
+  PlaylistStatusEnum,
+} from './services/playlist.service';
+import { PlaylistBoxComponent } from './components/playlist-box/playlist-box.component';
+import { VersionService } from './services/version.service';
+import { map } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { ArchiveService } from './services/archive.service';
+import { ArchiveFile, ArchiveListing } from './models/archive';
+import { Track, TrackStatusEnum } from './models/track';
+import { TrackService } from './services/track.service';
+import {
+  OperationsSnapshot,
+  RejectedCandidateTruth,
+  SelectedCandidateTruth,
+  TrackTruth,
+} from './models/operations-snapshot';
 
 export type SpootyPanelType =
-  'source-intake'
+  | 'source-intake'
   | 'queue-observatory'
   | 'playlist-history'
   | 'single-songs'
@@ -66,20 +75,62 @@ const WORKSPACE_TAB_LABELS: Record<SpootyWorkspaceTab, string> = {
 const DEFAULT_TAB_PANELS: Record<SpootyWorkspaceTab, SpootyPanelInstance[]> = {
   intake: [
     makePanel('source-intake', 24, 24, 520, 336, 'intake-source-intake'),
-    makePanel('queue-observatory', 568, 24, 520, 260, 'intake-queue-observatory'),
+    makePanel(
+      'queue-observatory',
+      568,
+      24,
+      520,
+      260,
+      'intake-queue-observatory',
+    ),
     makePanel('playlist-history', 24, 392, 760, 448, 'intake-playlist-history'),
     makePanel('single-songs', 820, 392, 520, 448, 'intake-single-songs'),
   ],
   archive: [
     makePanel('archive-browser', 24, 24, 900, 720, 'archive-archive-browser'),
     makePanel('source-intake', 960, 24, 420, 336, 'archive-source-intake'),
-    makePanel('queue-observatory', 960, 396, 420, 260, 'archive-queue-observatory'),
+    makePanel(
+      'queue-observatory',
+      960,
+      396,
+      420,
+      260,
+      'archive-queue-observatory',
+    ),
   ],
   diagnostics: [
-    makePanel('candidate-inspector', 24, 24, 620, 720, 'diagnostics-candidate-inspector'),
-    makePanel('playlist-history', 680, 24, 620, 520, 'diagnostics-playlist-history'),
-    makePanel('queue-observatory', 1320, 24, 420, 260, 'diagnostics-queue-observatory'),
-    makePanel('archive-browser', 1320, 320, 420, 420, 'diagnostics-archive-browser'),
+    makePanel(
+      'candidate-inspector',
+      24,
+      24,
+      620,
+      720,
+      'diagnostics-candidate-inspector',
+    ),
+    makePanel(
+      'playlist-history',
+      680,
+      24,
+      620,
+      520,
+      'diagnostics-playlist-history',
+    ),
+    makePanel(
+      'queue-observatory',
+      1320,
+      24,
+      420,
+      260,
+      'diagnostics-queue-observatory',
+    ),
+    makePanel(
+      'archive-browser',
+      1320,
+      320,
+      420,
+      420,
+      'diagnostics-archive-browser',
+    ),
   ],
 };
 
@@ -106,9 +157,11 @@ export function defaultWorkspaceState(): SpootyWorkspaceState {
   return defaultWorkspaceStateForTab('intake');
 }
 
-export function defaultWorkspaceStateForTab(tab: SpootyWorkspaceTab): SpootyWorkspaceState {
+export function defaultWorkspaceStateForTab(
+  tab: SpootyWorkspaceTab,
+): SpootyWorkspaceState {
   return {
-    panels: DEFAULT_TAB_PANELS[tab].map(panel => ({...panel})),
+    panels: DEFAULT_TAB_PANELS[tab].map((panel) => ({ ...panel })),
   };
 }
 
@@ -133,8 +186,8 @@ export function loadWorkspaceState(): SpootyWorkspaceState {
 
     const parsed = JSON.parse(raw) as SpootyWorkspaceState;
     const panels = parsed.panels
-      ?.filter(panel => panel?.id && panel?.type && PANEL_TITLES[panel.type])
-      .map(panel => ({
+      ?.filter((panel) => panel?.id && panel?.type && PANEL_TITLES[panel.type])
+      .map((panel) => ({
         ...panel,
         title: PANEL_TITLES[panel.type],
         x: snap(panel.x),
@@ -143,7 +196,7 @@ export function loadWorkspaceState(): SpootyWorkspaceState {
         h: Math.max(MIN_PANEL_HEIGHT, snap(panel.h)),
       }));
 
-    return panels?.length ? {panels} : defaultWorkspaceState();
+    return panels?.length ? { panels } : defaultWorkspaceState();
   } catch {
     return defaultWorkspaceState();
   }
@@ -156,11 +209,23 @@ export function loadWorkspaceTabsState(): SpootyWorkspaceTabsState {
     if (raw) {
       const parsed = JSON.parse(raw) as SpootyWorkspaceTabsState;
       return {
-        activeTab: parsed.activeTab && WORKSPACE_TAB_LABELS[parsed.activeTab] ? parsed.activeTab : 'intake',
+        activeTab:
+          parsed.activeTab && WORKSPACE_TAB_LABELS[parsed.activeTab]
+            ? parsed.activeTab
+            : 'intake',
         tabs: {
-          intake: sanitizeWorkspaceState(parsed.tabs?.intake, defaultWorkspaceStateForTab('intake')),
-          archive: sanitizeWorkspaceState(parsed.tabs?.archive, defaultWorkspaceStateForTab('archive')),
-          diagnostics: sanitizeWorkspaceState(parsed.tabs?.diagnostics, defaultWorkspaceStateForTab('diagnostics')),
+          intake: sanitizeWorkspaceState(
+            parsed.tabs?.intake,
+            defaultWorkspaceStateForTab('intake'),
+          ),
+          archive: sanitizeWorkspaceState(
+            parsed.tabs?.archive,
+            defaultWorkspaceStateForTab('archive'),
+          ),
+          diagnostics: sanitizeWorkspaceState(
+            parsed.tabs?.diagnostics,
+            defaultWorkspaceStateForTab('diagnostics'),
+          ),
         },
       };
     }
@@ -182,8 +247,8 @@ function sanitizeWorkspaceState(
   fallback: SpootyWorkspaceState,
 ): SpootyWorkspaceState {
   const panels = state?.panels
-    ?.filter(panel => panel?.id && panel?.type && PANEL_TITLES[panel.type])
-    .map(panel => ({
+    ?.filter((panel) => panel?.id && panel?.type && PANEL_TITLES[panel.type])
+    .map((panel) => ({
       ...panel,
       title: PANEL_TITLES[panel.type],
       x: snap(panel.x),
@@ -192,7 +257,7 @@ function sanitizeWorkspaceState(
       h: Math.max(MIN_PANEL_HEIGHT, snap(panel.h)),
     }));
 
-  return panels?.length ? {panels} : fallback;
+  return panels?.length ? { panels } : fallback;
 }
 
 function snap(value: number): number {
@@ -200,16 +265,16 @@ function snap(value: number): number {
 }
 
 @Component({
-    selector: 'app-root',
-    imports: [CommonModule, FormsModule, NgFor, PlaylistBoxComponent],
-    templateUrl: './app.component.html',
-    styleUrl: './app.component.scss',
-    standalone: true,
+  selector: 'app-root',
+  imports: [CommonModule, FormsModule, NgFor, PlaylistBoxComponent],
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.scss',
+  standalone: true,
 })
 export class AppComponent implements OnDestroy {
-
-  url = ''
-  private readonly spotifyUrlPattern = /^https:\/\/open\.spotify\.com\/(track|playlist|album|artist)\/[a-zA-Z0-9]+/;
+  url = '';
+  private readonly spotifyUrlPattern =
+    /^https:\/\/open\.spotify\.com\/(track|playlist|album|artist)\/[a-zA-Z0-9]+/;
   private interaction?: {
     mode: 'drag' | 'resize';
     panelId: string;
@@ -220,6 +285,8 @@ export class AppComponent implements OnDestroy {
     startPanelW: number;
     startPanelH: number;
   };
+  private readonly operationsRefreshMs = 5000;
+  private operationsRefreshTimer?: number;
   readonly panelTypes: SpootyPanelType[] = [
     'source-intake',
     'queue-observatory',
@@ -228,7 +295,11 @@ export class AppComponent implements OnDestroy {
     'archive-browser',
     'candidate-inspector',
   ];
-  readonly workspaceTabs: SpootyWorkspaceTab[] = ['intake', 'archive', 'diagnostics'];
+  readonly workspaceTabs: SpootyWorkspaceTab[] = [
+    'intake',
+    'archive',
+    'diagnostics',
+  ];
   readonly archiveSortModes: ArchiveSortMode[] = ['newest', 'name', 'size'];
   selectedPanelType: SpootyPanelType = 'source-intake';
   workspaceTabsState: SpootyWorkspaceTabsState = loadWorkspaceTabsState();
@@ -237,8 +308,12 @@ export class AppComponent implements OnDestroy {
     return this.spotifyUrlPattern.test(this.url);
   }
   createLoading$ = this.playlistService.createLoading$;
-  playlists$ = this.playlistService.all$.pipe(map(items => items.filter(item => !item.isTrack)));
-  songs$ = this.playlistService.all$.pipe(map(items => items.filter(item => item.isTrack)));
+  playlists$ = this.playlistService.all$.pipe(
+    map((items) => items.filter((item) => !item.isTrack)),
+  );
+  songs$ = this.playlistService.all$.pipe(
+    map((items) => items.filter((item) => item.isTrack)),
+  );
   allTracks$ = this.trackService.all$;
   selectedTrack$ = this.trackService.selectedTrack$;
   version = this.versionService.getVersion();
@@ -250,6 +325,8 @@ export class AppComponent implements OnDestroy {
   archiveSearch = '';
   archiveSort: ArchiveSortMode = 'newest';
   trackStatuses = TrackStatusEnum;
+  operationsSnapshot?: OperationsSnapshot;
+  operationsSnapshotError = '';
 
   get activeWorkspaceTab(): SpootyWorkspaceTab {
     return this.workspaceTabsState.activeTab;
@@ -270,10 +347,18 @@ export class AppComponent implements OnDestroy {
     this.checkSpotifyStatus();
     this.fetchPlaylists();
     this.refreshArchive();
+    this.refreshOperationsSnapshot();
+    this.operationsRefreshTimer = window.setInterval(
+      () => this.refreshOperationsSnapshot(),
+      this.operationsRefreshMs,
+    );
   }
 
   ngOnDestroy(): void {
     this.stopWorkspaceInteraction();
+    if (this.operationsRefreshTimer) {
+      window.clearInterval(this.operationsRefreshTimer);
+    }
   }
 
   private bootstrapAuthTokenFromUrl(): void {
@@ -337,6 +422,18 @@ export class AppComponent implements OnDestroy {
     });
   }
 
+  refreshOperationsSnapshot(): void {
+    this.http.get<OperationsSnapshot>('/api/operations/snapshot').subscribe({
+      next: (snapshot) => {
+        this.operationsSnapshot = snapshot;
+        this.operationsSnapshotError = '';
+      },
+      error: () => {
+        this.operationsSnapshotError = 'Operations snapshot is unavailable.';
+      },
+    });
+  }
+
   formatBytes(sizeBytes: number): string {
     if (sizeBytes < 1024) {
       return `${sizeBytes} B`;
@@ -372,29 +469,54 @@ export class AppComponent implements OnDestroy {
     }
   }
 
-  rejectedUrls(track: Track): string[] {
-    if (Array.isArray(track.rejectedYoutubeUrls)) {
-      return track.rejectedYoutubeUrls;
-    }
-
-    if (!track.rejectedYoutubeUrls) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(track.rejectedYoutubeUrls);
-      return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : [];
-    } catch {
-      return [];
-    }
-  }
-
   selectTrack(track: Track): void {
     this.trackService.select(track);
+    this.refreshOperationsSnapshot();
   }
 
   clearSelectedTrack(): void {
     this.trackService.clearSelection();
+  }
+
+  selectedTrackTruth(track: Track): TrackTruth | undefined {
+    return this.findTrackTruth(track.id);
+  }
+
+  selectedCandidate(truth?: TrackTruth): SelectedCandidateTruth | undefined {
+    return truth?.selectedCandidate;
+  }
+
+  rejectedCandidates(truth?: TrackTruth): RejectedCandidateTruth[] {
+    return truth?.rejectedCandidates || [];
+  }
+
+  rejectedCandidateCount(truth?: TrackTruth): number {
+    return truth?.rejectedCandidateCount || 0;
+  }
+
+  errorClass(truth?: TrackTruth): string {
+    return truth?.errorClass || 'none';
+  }
+
+  errorSummary(truth?: TrackTruth): string {
+    return truth?.errorSummary || 'none';
+  }
+
+  errorDetail(truth?: TrackTruth): string {
+    return truth?.errorDetail || '';
+  }
+
+  private findTrackTruth(id: number): TrackTruth | undefined {
+    if (!this.operationsSnapshot) {
+      return undefined;
+    }
+
+    return [
+      ...this.operationsSnapshot.active.searching,
+      ...this.operationsSnapshot.active.downloading,
+      ...this.operationsSnapshot.recentFailures,
+      ...this.operationsSnapshot.recentTracks,
+    ].find((track) => track.id === id);
   }
 
   getWorkspaceTabLabel(tab: SpootyWorkspaceTab): string {
@@ -410,7 +532,9 @@ export class AppComponent implements OnDestroy {
   }
 
   resetLayout(): void {
-    this.setActiveWorkspace(defaultWorkspaceStateForTab(this.activeWorkspaceTab));
+    this.setActiveWorkspace(
+      defaultWorkspaceStateForTab(this.activeWorkspaceTab),
+    );
   }
 
   resetAllLayouts(): void {
@@ -422,7 +546,9 @@ export class AppComponent implements OnDestroy {
     const files = this.archiveListing?.files || [];
     const query = this.archiveSearch.trim().toLowerCase();
     const filtered = query
-      ? files.filter(file => `${file.name} ${file.path}`.toLowerCase().includes(query))
+      ? files.filter((file) =>
+          `${file.name} ${file.path}`.toLowerCase().includes(query),
+        )
       : [...files];
 
     return filtered.sort((a, b) => {
@@ -441,12 +567,12 @@ export class AppComponent implements OnDestroy {
   archiveGroups(): { folder: string; files: ArchiveFile[] }[] {
     const groups = new Map<string, ArchiveFile[]>();
 
-    this.filteredArchiveFiles().forEach(file => {
+    this.filteredArchiveFiles().forEach((file) => {
       const folder = this.topLevelFolder(file);
       groups.set(folder, [...(groups.get(folder) || []), file]);
     });
 
-    return [...groups.entries()].map(([folder, files]) => ({folder, files}));
+    return [...groups.entries()].map(([folder, files]) => ({ folder, files }));
   }
 
   archiveFileCount(): number {
@@ -454,7 +580,10 @@ export class AppComponent implements OnDestroy {
   }
 
   archiveTotalBytes(): number {
-    return this.filteredArchiveFiles().reduce((total, file) => total + file.sizeBytes, 0);
+    return this.filteredArchiveFiles().reduce(
+      (total, file) => total + file.sizeBytes,
+      0,
+    );
   }
 
   topLevelFolder(file: ArchiveFile): string {
@@ -490,7 +619,7 @@ export class AppComponent implements OnDestroy {
     }
 
     this.setActiveWorkspace({
-      panels: this.workspace.panels.filter(panel => panel.id !== panelId),
+      panels: this.workspace.panels.filter((panel) => panel.id !== panelId),
     });
   }
 
@@ -583,7 +712,9 @@ export class AppComponent implements OnDestroy {
 
   private startWorkspaceInteraction(): void {
     document.addEventListener('pointermove', this.handlePointerMove);
-    document.addEventListener('pointerup', this.handlePointerUp, {once: true});
+    document.addEventListener('pointerup', this.handlePointerUp, {
+      once: true,
+    });
   }
 
   private stopWorkspaceInteraction(): void {
@@ -593,7 +724,7 @@ export class AppComponent implements OnDestroy {
   }
 
   private bringPanelToFront(panelId: string): void {
-    const panel = this.workspace.panels.find(item => item.id === panelId);
+    const panel = this.workspace.panels.find((item) => item.id === panelId);
 
     if (!panel) {
       return;
@@ -601,16 +732,19 @@ export class AppComponent implements OnDestroy {
 
     this.setActiveWorkspace({
       panels: [
-        ...this.workspace.panels.filter(item => item.id !== panelId),
+        ...this.workspace.panels.filter((item) => item.id !== panelId),
         panel,
       ],
     });
   }
 
-  private updatePanel(panelId: string, changes: Partial<SpootyPanelInstance>): void {
+  private updatePanel(
+    panelId: string,
+    changes: Partial<SpootyPanelInstance>,
+  ): void {
     this.setActiveWorkspace({
-      panels: this.workspace.panels.map(panel =>
-        panel.id === panelId ? {...panel, ...changes} : panel
+      panels: this.workspace.panels.map((panel) =>
+        panel.id === panelId ? { ...panel, ...changes } : panel,
       ),
     });
   }
@@ -627,6 +761,9 @@ export class AppComponent implements OnDestroy {
   }
 
   private saveWorkspaceState(): void {
-    localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(this.workspaceTabsState));
+    localStorage.setItem(
+      WORKSPACE_TABS_STORAGE_KEY,
+      JSON.stringify(this.workspaceTabsState),
+    );
   }
 }

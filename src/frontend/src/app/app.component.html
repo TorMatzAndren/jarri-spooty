@@ -4,15 +4,18 @@
       <div class="brand-line">
         <i class="fa-brands fa-spotify"></i>
         <h1>Jarri Spooty</h1>
-        <span class="tag version-tag">v{{version}}</span>
+        <span class="tag version-tag">v{{ version }}</span>
       </div>
       <p>Spotify metadata → YouTube candidate scoring → Local archive</p>
     </div>
 
     <div class="truth-strip">
       <span class="truth-pill" [class.connected]="spotifyConnected">
-        <i class="fa-solid" [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"></i>
-        {{ spotifyConnected ? 'Spotify connected' : 'Spotify disconnected' }}
+        <i
+          class="fa-solid"
+          [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"
+        ></i>
+        {{ spotifyConnected ? "Spotify connected" : "Spotify disconnected" }}
       </span>
     </div>
   </header>
@@ -49,7 +52,11 @@
         <i class="fa-solid fa-rotate-left"></i>
         Reset Current Tab
       </button>
-      <button class="button reset-button" type="button" (click)="resetAllLayouts()">
+      <button
+        class="button reset-button"
+        type="button"
+        (click)="resetAllLayouts()"
+      >
         <i class="fa-solid fa-rotate"></i>
         Reset All Tabs
       </button>
@@ -88,8 +95,11 @@
             [class.connected]="spotifyConnected"
             (click)="connectSpotify()"
           >
-            <i class="fa-solid" [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"></i>
-            {{ spotifyConnected ? 'Spotify connected' : 'Connect Spotify' }}
+            <i
+              class="fa-solid"
+              [ngClass]="spotifyConnected ? 'fa-circle-check' : 'fa-plug'"
+            ></i>
+            {{ spotifyConnected ? "Spotify connected" : "Connect Spotify" }}
           </button>
 
           <div class="intake-form">
@@ -121,7 +131,10 @@
           />
 
           <div class="truth-note">
-            <p>Runtime download root: {{ archiveListing?.root || archiveDestination || 'loading...' }}</p>
+            <p>
+              Runtime download root:
+              {{ archiveListing?.root || archiveDestination || "loading..." }}
+            </p>
             <p>Per-run destination routing: pending backend support</p>
           </div>
 
@@ -135,7 +148,9 @@
             <ng-container *ngIf="songs$ | async as songs">
               <div class="metric-card">
                 <span>Spotify</span>
-                <strong [class.online]="spotifyConnected">{{ spotifyConnected ? 'Connected' : 'Disconnected' }}</strong>
+                <strong [class.online]="spotifyConnected">{{
+                  spotifyConnected ? "Connected" : "Disconnected"
+                }}</strong>
               </div>
               <div class="metric-card">
                 <span>Playlists</span>
@@ -160,18 +175,31 @@
               <p>One collapsed row per playlist run.</p>
             </div>
             <div class="buttons has-addons">
-              <button class="button is-outlined is-success" title="Remove completed from list" (click)="deleteCompleted()">
+              <button
+                class="button is-outlined is-success"
+                title="Remove completed from list"
+                (click)="deleteCompleted()"
+              >
                 <i class="fa-solid fa-check"></i>
               </button>
-              <button class="button is-outlined is-danger" title="Remove failed from list" (click)="deleteFailed()">
+              <button
+                class="button is-outlined is-danger"
+                title="Remove failed from list"
+                (click)="deleteFailed()"
+              >
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </div>
 
           <ng-container *ngIf="playlists$ | async as playlists">
-            <app-playlist-box *ngFor="let playlist of playlists" [playlist]="playlist"></app-playlist-box>
-            <p *ngIf="playlists?.length === 0" class="empty-state">No playlists</p>
+            <app-playlist-box
+              *ngFor="let playlist of playlists"
+              [playlist]="playlist"
+            ></app-playlist-box>
+            <p *ngIf="playlists?.length === 0" class="empty-state">
+              No playlists
+            </p>
           </ng-container>
         </section>
 
@@ -184,7 +212,10 @@
           </div>
 
           <ng-container *ngIf="songs$ | async as songs">
-            <app-playlist-box *ngFor="let playlist of songs" [playlist]="playlist"></app-playlist-box>
+            <app-playlist-box
+              *ngFor="let playlist of songs"
+              [playlist]="playlist"
+            ></app-playlist-box>
             <p *ngIf="songs?.length === 0" class="empty-state">No songs</p>
           </ng-container>
         </section>
@@ -193,9 +224,14 @@
           <div class="section-toolbar">
             <div>
               <h2>Archive Browser</h2>
-              <p>Root: {{ archiveListing?.root || 'loading...' }}</p>
+              <p>Root: {{ archiveListing?.root || "loading..." }}</p>
             </div>
-            <button class="button is-small reset-button" type="button" [class.is-loading]="archiveLoading" (click)="refreshArchive()">
+            <button
+              class="button is-small reset-button"
+              type="button"
+              [class.is-loading]="archiveLoading"
+              (click)="refreshArchive()"
+            >
               <i class="fa-solid fa-rotate"></i>
               Refresh
             </button>
@@ -226,24 +262,40 @@
                 placeholder="Search archive"
               />
               <div class="select is-small">
-                <select [(ngModel)]="archiveSort" aria-label="Sort archive files">
-                  <option *ngFor="let sortMode of archiveSortModes" [ngValue]="sortMode">
+                <select
+                  [(ngModel)]="archiveSort"
+                  aria-label="Sort archive files"
+                >
+                  <option
+                    *ngFor="let sortMode of archiveSortModes"
+                    [ngValue]="sortMode"
+                  >
                     {{ sortMode }}
                   </option>
                 </select>
               </div>
             </div>
 
-            <p *ngIf="archiveFileCount() === 0" class="empty-state">No downloaded files found.</p>
+            <p *ngIf="archiveFileCount() === 0" class="empty-state">
+              No downloaded files found.
+            </p>
 
-            <section *ngFor="let group of archiveGroups()" class="archive-group">
+            <section
+              *ngFor="let group of archiveGroups()"
+              class="archive-group"
+            >
               <h3>
                 <i class="fa-solid fa-folder"></i>
                 {{ group.folder }}
               </h3>
 
               <div *ngFor="let file of group.files" class="archive-file-card">
-                <i class="fa-solid" [ngClass]="hasFolder(file) ? 'fa-folder-tree' : 'fa-file-audio'"></i>
+                <i
+                  class="fa-solid"
+                  [ngClass]="
+                    hasFolder(file) ? 'fa-folder-tree' : 'fa-file-audio'
+                  "
+                ></i>
                 <div>
                   <strong>{{ file.name }}</strong>
                   <span>{{ folderPath(file) }}</span>
@@ -256,47 +308,157 @@
         </section>
 
         <section *ngSwitchCase="'candidate-inspector'" class="history-panel">
-          <ng-container *ngIf="selectedTrack$ | async as selectedTrack; else noTrackSelected">
+          <ng-container
+            *ngIf="
+              selectedTrack$ | async as selectedTrack;
+              else noTrackSelected
+            "
+          >
             <div class="section-toolbar">
               <div>
                 <h2>{{ selectedTrack.artist }} - {{ selectedTrack.name }}</h2>
                 <p>Status: {{ trackStatusLabel(selectedTrack.status) }}</p>
               </div>
-              <button class="button is-small reset-button" type="button" (click)="clearSelectedTrack()">
+              <button
+                class="button is-small reset-button"
+                type="button"
+                (click)="clearSelectedTrack()"
+              >
                 <i class="fa-solid fa-arrow-left"></i>
                 Back
               </button>
             </div>
 
-            <dl class="inspector-list">
-              <dt>Spotify URL</dt>
-              <dd><a [href]="selectedTrack.spotifyUrl" target="_blank">{{ selectedTrack.spotifyUrl || 'none' }}</a></dd>
-              <dt>Status</dt>
-              <dd>{{ trackStatusLabel(selectedTrack.status) }}</dd>
-              <dt>Download attempts</dt>
-              <dd>{{ selectedTrack.downloadAttemptCount || 0 }}</dd>
-              <dt>Error</dt>
-              <dd>{{ selectedTrack.error || 'none' }}</dd>
-            </dl>
+            <ng-container
+              *ngIf="
+                selectedTrackTruth(selectedTrack) as trackTruth;
+                else noTrackTruth
+              "
+            >
+              <dl class="inspector-list">
+                <dt>Spotify URL</dt>
+                <dd>
+                  <a [href]="selectedTrack.spotifyUrl" target="_blank">{{
+                    selectedTrack.spotifyUrl || "none"
+                  }}</a>
+                </dd>
+                <dt>Status</dt>
+                <dd>{{ trackStatusLabel(selectedTrack.status) }}</dd>
+                <dt>Download attempts</dt>
+                <dd>{{ selectedTrack.downloadAttemptCount || 0 }}</dd>
+                <dt>Error class</dt>
+                <dd>{{ errorClass(trackTruth) }}</dd>
+                <dt>Error summary</dt>
+                <dd>{{ errorSummary(trackTruth) }}</dd>
+                <dt>Error detail</dt>
+                <dd>
+                  <details
+                    *ngIf="errorDetail(trackTruth); else noErrorDetail"
+                    class="truth-detail"
+                  >
+                    <summary>Show backend evidence</summary>
+                    <pre>{{ errorDetail(trackTruth) }}</pre>
+                  </details>
+                  <ng-template #noErrorDetail>none</ng-template>
+                </dd>
+              </dl>
 
-            <div class="candidate-options">
-              <strong>Other options</strong>
-              <p *ngIf="selectedTrack.youtubeUrl">
-                Selected candidate:
-                <a [href]="selectedTrack.youtubeUrl" target="_blank">{{ selectedTrack.youtubeUrl }}</a>
-              </p>
-              <p>Rejected candidates: {{ rejectedUrls(selectedTrack).length }}</p>
-              <a *ngFor="let url of rejectedUrls(selectedTrack)" [href]="url" target="_blank">{{ url }}</a>
-              <p *ngIf="!selectedTrack.youtubeUrl && rejectedUrls(selectedTrack).length === 0" class="empty-state">
-                Candidate alternatives are not persisted yet. Future scoring history will appear here.
-              </p>
-            </div>
+              <div class="candidate-options">
+                <strong>Selected candidate</strong>
+                <ng-container
+                  *ngIf="
+                    selectedCandidate(trackTruth) as candidate;
+                    else noSelectedCandidate
+                  "
+                >
+                  <dl class="candidate-card">
+                    <dt>URL</dt>
+                    <dd>
+                      <a [href]="candidate.url" target="_blank">{{
+                        candidate.url
+                      }}</a>
+                    </dd>
+                    <dt>Title</dt>
+                    <dd>{{ candidate.title || "unknown" }}</dd>
+                    <dt>Author</dt>
+                    <dd>{{ candidate.author || "unknown" }}</dd>
+                    <dt>Score</dt>
+                    <dd>{{ candidate.score ?? "unknown" }}</dd>
+                    <dt>Reason</dt>
+                    <dd>{{ candidate.reason || "unknown" }}</dd>
+                  </dl>
+                </ng-container>
+                <ng-template #noSelectedCandidate>
+                  <p class="empty-state compact">No selected candidate.</p>
+                </ng-template>
+
+                <strong
+                  >Rejected candidates:
+                  {{ rejectedCandidateCount(trackTruth) }}</strong
+                >
+                <div
+                  *ngFor="let candidate of rejectedCandidates(trackTruth)"
+                  class="candidate-card rejected-candidate-card"
+                >
+                  <dl>
+                    <dt>URL</dt>
+                    <dd>
+                      <a [href]="candidate.url" target="_blank">{{
+                        candidate.url
+                      }}</a>
+                    </dd>
+                    <dt>Title</dt>
+                    <dd>{{ candidate.title || "unknown" }}</dd>
+                    <dt>Author</dt>
+                    <dd>{{ candidate.author || "unknown" }}</dd>
+                    <dt>Score</dt>
+                    <dd>{{ candidate.score ?? "unknown" }}</dd>
+                    <dt>Reason</dt>
+                    <dd>{{ candidate.reason || "unknown" }}</dd>
+                    <dt>Rejection class</dt>
+                    <dd>{{ candidate.rejectionClass || "unknown" }}</dd>
+                    <dt>Rejection summary</dt>
+                    <dd>{{ candidate.rejectionSummary || "unknown" }}</dd>
+                    <dt>Rejected at</dt>
+                    <dd>{{ candidate.rejectedAt || "unknown" }}</dd>
+                  </dl>
+                </div>
+                <p
+                  *ngIf="rejectedCandidateCount(trackTruth) === 0"
+                  class="empty-state compact"
+                >
+                  No rejected candidates.
+                </p>
+              </div>
+            </ng-container>
+
+            <ng-template #noTrackTruth>
+              <div class="placeholder-panel">
+                <i class="fa-solid fa-database"></i>
+                <p>
+                  {{
+                    operationsSnapshotError ||
+                      "Waiting for backend operations truth."
+                  }}
+                </p>
+                <button
+                  class="button is-small reset-button"
+                  type="button"
+                  (click)="refreshOperationsSnapshot()"
+                >
+                  Refresh truth
+                </button>
+              </div>
+            </ng-template>
           </ng-container>
 
           <ng-template #noTrackSelected>
             <div class="placeholder-panel">
               <i class="fa-solid fa-magnifying-glass-chart"></i>
-              <p>Select a track row inside an expanded playlist to inspect Spotify, YouTube, retry, and error details.</p>
+              <p>
+                Select a track row inside an expanded playlist to inspect
+                Spotify, YouTube, retry, and error details.
+              </p>
             </div>
             <ng-container *ngIf="allTracks$ | async as allTracks">
               <button
