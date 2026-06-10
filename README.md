@@ -9,7 +9,24 @@ It retrieves metadata from Spotify and locates matching audio on YouTube.
 
 Deterministic Spotify metadata ingestion with duration-aware YouTube candidate scoring, paced queue execution, hardened Docker deployment, and local archival workflows.
 
-Current version: 3.0.0
+Current version: 3.1.0
+
+## What's New in 3.1.0
+
+Jarri Spooty 3.1.0 introduces the first generation of operational truth contracts.
+
+New capabilities include:
+
+- Operations Snapshot API
+- Candidate selection provenance
+- Selected YouTube candidate persistence
+- Rejected YouTube candidate persistence
+- Candidate scoring visibility
+- Candidate selection reasoning
+- Improved Workspace diagnostics
+- Backend-owned operational truth for future Workspace integrations
+
+Spooty now exposes why a candidate was selected rather than treating YouTube matching as a black box.
 
 This hardened branch focuses on:
 
@@ -31,7 +48,10 @@ This hardened branch focuses on:
 - Reduced unused dependency surface
 - Hardened filename, cover-art, subprocess, and websocket boundaries
 - Workspace Archive Browser MVP with scoped read-only archive listing
-- Workspace Candidate Inspector MVP for selected track details
+- Workspace Candidate Inspector with candidate provenance
+- Operations Snapshot API
+- Candidate scoring visibility
+- Candidate rejection persistence
 - Frontend archive destination field for planned per-run routing
 - Frontend Workspace tabs for Intake, Archive, and Diagnostics layouts
 
@@ -53,11 +73,15 @@ This hardened branch focuses on:
 - Automatic YouTube retry/fallback handling
 - Failed YouTube candidate rejection memory
 - Deterministic yt-dlp error classification
+- Candidate scoring visibility
+- Candidate selection reasoning
+- Candidate provenance persistence
 - Hardened cover-art validation and embedding
 - Explicit client-facing websocket payload shaping
 - Draggable/resizable Workspace UI
 - Archive Browser panel for downloaded file inspection
 - Candidate Inspector panel for selected track diagnostics
+- Operations Snapshot diagnostics API
 - Frontend-persisted archive destination input
 - Per-tab workspace layout presets
 - Read-only archive search, sort, and grouped file inspection
@@ -66,7 +90,7 @@ This hardened branch focuses on:
 
 # Workspace UI
 
-Jarri Spooty 3.0.0 introduces a draggable/resizable Workspace shell with frontend tab presets.
+Jarri Spooty 3.1.0 introduces a draggable/resizable Workspace shell with frontend tab presets.
 
 Workspace tabs:
 
@@ -79,11 +103,11 @@ Each tab has its own persisted panel layout in browser localStorage. The old sin
 Workspace panels:
 
 - Source Intake: Spotify connection, URL queueing, and a frontend-persisted Archive destination field
-- Queue Observatory: Spotify, playlist, single-song, and archive-run metrics
+- Queue Observatory: Spotify, playlist, single-song, archive, and runtime metrics
 - Playlist History: existing playlist rows and delete completed/delete failed controls
 - Single Songs: existing single-track queue rows
 - Archive Browser: read-only browser-style listing of downloaded files inside the configured downloads root, with search, sort, file count, total size, and top-level folder grouping
-- Candidate Inspector: selected track details including Spotify URL, selected YouTube candidate, status, error, retry attempts, rejected candidates when available, and a Back/Clear selection action
+- Candidate Inspector: selected track details including Spotify URL, selected YouTube candidate, candidate score, candidate reasoning, status, error classification, error summary, retry attempts, rejected candidates, and download diagnostics
 
 The Archive destination field is frontend-persisted planning state. Runtime downloads still use the backend `DOWNLOADS_PATH` root. Per-run destination routing is pending backend support.
 
@@ -93,7 +117,40 @@ The Archive Browser uses:
 
 It returns the configured downloads root and files under that root only. It does not allow arbitrary filesystem browsing, deletion, moving, renaming, or path traversal.
 
-Candidate alternatives are limited to the selected YouTube URL and rejected YouTube URLs already stored for the track. Full scoring history is not persisted yet.
+Candidate Inspector displays persisted candidate provenance including:
+
+- Selected candidate
+- Candidate score
+- Candidate reasoning
+- Rejected candidates
+- Download attempts
+- Error classification
+- Error summaries
+
+Full candidate-pool history is not yet retained.
+
+---
+
+# Operations Snapshot API
+
+Spooty exposes deterministic operational truth through:
+
+    GET /api/operations/snapshot
+
+This endpoint provides:
+
+- Runtime operation state
+- Queue depths
+- Active searches
+- Active downloads
+- Playlist counts
+- Track counts
+- Failure summaries
+- Candidate-selection metadata
+
+The endpoint is intended for Workspace integrations and diagnostics surfaces.
+
+Workspace consumes this truth rather than deriving operational state independently.
 
 ---
 
@@ -119,7 +176,7 @@ Example:
 
 ---
 
-# Quick Start (Recommended)
+# Quick Start Recommended
 
 ## 1. Create Spotify Developer App
 
@@ -144,23 +201,21 @@ Copy:
 
 Create a secure env file:
 
-~~~bash
-sudo mkdir -p /etc/tokens
+    sudo mkdir -p /etc/tokens
 
-sudo tee /etc/tokens/spotify.env > /dev/null <<'EOT'
-SPOTIFY_CLIENT_ID=your_client_id
-SPOTIFY_CLIENT_SECRET=your_client_secret
-EOT
+    sudo tee /etc/tokens/spotify.env > /dev/null <<'EOT'
+    SPOTIFY_CLIENT_ID=your_client_id
+    SPOTIFY_CLIENT_SECRET=your_client_secret
+    EOT
 
-sudo chown root:$USER /etc/tokens/spotify.env
-sudo chmod 640 /etc/tokens/spotify.env
-~~~
+    sudo chown root:$USER /etc/tokens/spotify.env
+    sudo chmod 640 /etc/tokens/spotify.env
 
 Never commit this file.
 
 ---
 
-## 3. Export YouTube Cookies (Recommended)
+## 3. Export YouTube Cookies Recommended
 
 YouTube increasingly rate-limits or age-gates anonymous downloads.
 
@@ -168,30 +223,26 @@ Export a Netscape-format `cookies.txt` from a logged-in browser session.
 
 Recommended storage:
 
-~~~bash
-sudo cp cookies.txt /etc/tokens/youtube.cookies.txt
-sudo chown root:$USER /etc/tokens/youtube.cookies.txt
-sudo chmod 640 /etc/tokens/youtube.cookies.txt
-~~~
+    sudo cp cookies.txt /etc/tokens/youtube.cookies.txt
+    sudo chown root:$USER /etc/tokens/youtube.cookies.txt
+    sudo chmod 640 /etc/tokens/youtube.cookies.txt
 
 ---
 
 # Docker Run
 
-~~~bash
-docker run --rm -p 3000:3000 \
-  --env-file /etc/tokens/spotify.env \
-  -e SPOTIFY_REDIRECT_URI='http://127.0.0.1:3000/api/spotify/callback' \
-  -e AUTH_ENABLED=true \
-  -e SPOOTY_AUTH_TOKEN=change_this_token \
-  -e YT_SEARCH_DELAY_MS=7000 \
-  -e YT_DOWNLOADS_PER_MINUTE=6 \
-  -e YT_COOKIES_FILE=/spooty/config/youtube.cookies.txt \
-  -v "$PWD/downloads:/spooty/backend/downloads" \
-  -v "$PWD/spooty-config:/spooty/backend/config" \
-  -v "/etc/tokens/youtube.cookies.txt:/spooty/config/youtube.cookies.txt:ro" \
-  jarri-spooty:local
-~~~
+    docker run --rm -p 3000:3000 \
+      --env-file /etc/tokens/spotify.env \
+      -e SPOTIFY_REDIRECT_URI='http://127.0.0.1:3000/api/spotify/callback' \
+      -e AUTH_ENABLED=true \
+      -e SPOOTY_AUTH_TOKEN=change_this_token \
+      -e YT_SEARCH_DELAY_MS=7000 \
+      -e YT_DOWNLOADS_PER_MINUTE=6 \
+      -e YT_COOKIES_FILE=/spooty/config/youtube.cookies.txt \
+      -v "$PWD/downloads:/spooty/backend/downloads" \
+      -v "$PWD/spooty-config:/spooty/backend/config" \
+      -v "/etc/tokens/youtube.cookies.txt:/spooty/config/youtube.cookies.txt:ro" \
+      jarri-spooty:local
 
 Open:
 
@@ -209,7 +260,7 @@ Then:
 
 # Deterministic YouTube Fallback Handling
 
-The hardened branch now uses direct `yt-dlp` CLI execution rather than relying entirely on wrapper abstractions.
+The hardened branch uses direct `yt-dlp` CLI execution rather than relying entirely on wrapper abstractions.
 
 This provides:
 
@@ -242,10 +293,8 @@ Aggressive YouTube access can trigger:
 
 Recommended safe pacing:
 
-~~~bash
--e YT_SEARCH_DELAY_MS=7000
--e YT_DOWNLOADS_PER_MINUTE=6
-~~~
+    -e YT_SEARCH_DELAY_MS=7000
+    -e YT_DOWNLOADS_PER_MINUTE=6
 
 The hardened branch also includes additional internal pacing and retry coordination to reduce:
 
@@ -269,15 +318,13 @@ Never commit:
 
 Recommended `.gitignore` additions:
 
-~~~gitignore
-downloads/
-config/
-spooty-config/
-*.sqlite
-cookies.txt
-.env
-.env.local
-~~~
+    downloads/
+    config/
+    spooty-config/
+    *.sqlite
+    cookies.txt
+    .env
+    .env.local
 
 ---
 
