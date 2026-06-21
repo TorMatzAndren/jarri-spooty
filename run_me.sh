@@ -9,7 +9,10 @@ TOKEN="${SPOOTY_AUTH_TOKEN:-test-token}"
 DOWNLOADS="${DOWNLOADS:-$PROJECT/test-downloads}"
 CONFIG_DIR="${CONFIG_DIR:-$PROJECT/spooty-config}"
 ENV_FILE="${ENV_FILE:-/etc/tokens/spotify.env}"
+
 YT_COOKIES_FILE_HOST="${YT_COOKIES_FILE_HOST:-/etc/tokens/youtube.cookies.txt}"
+RUNTIME_SECRETS_DIR="${RUNTIME_SECRETS_DIR:-$PROJECT/spooty-runtime-secrets}"
+YT_COOKIES_FILE_STAGED="${YT_COOKIES_FILE_STAGED:-$RUNTIME_SECRETS_DIR/youtube.cookies.txt}"
 YT_COOKIES_FILE_CONTAINER="${YT_COOKIES_FILE_CONTAINER:-/spooty/config/youtube.cookies.txt}"
 
 cd "$PROJECT"
@@ -28,6 +31,18 @@ if [[ "${1:-}" == "--build" ]]; then
   $DOCKER build -t "$IMAGE" .
 fi
 
+echo "== Preparing runtime directories =="
+mkdir -p "$DOWNLOADS" "$CONFIG_DIR" "$RUNTIME_SECRETS_DIR"
+
+if [[ -f "$YT_COOKIES_FILE_HOST" ]]; then
+  echo "== Staging YouTube cookies =="
+  cp "$YT_COOKIES_FILE_HOST" "$YT_COOKIES_FILE_STAGED"
+  chmod 0666 "$YT_COOKIES_FILE_STAGED"
+else
+  echo "ERROR: YouTube cookies file not found: $YT_COOKIES_FILE_HOST" >&2
+  exit 1
+fi
+
 echo "== Removing named container if present =="
 $DOCKER rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
@@ -36,8 +51,6 @@ PORT_CONTAINERS="$($DOCKER ps --filter "publish=${PORT}" -q || true)"
 if [[ -n "$PORT_CONTAINERS" ]]; then
   $DOCKER rm -f $PORT_CONTAINERS
 fi
-
-mkdir -p "$DOWNLOADS" "$CONFIG_DIR"
 
 echo "== Starting Jarri Spooty =="
 $DOCKER run -d \
@@ -52,7 +65,7 @@ $DOCKER run -d \
   -e YT_DOWNLOAD_FALLBACK_ATTEMPTS=3 \
   -e YT_COOKIES_FILE="$YT_COOKIES_FILE_CONTAINER" \
   -v "$DOWNLOADS:/spooty/backend/downloads" \
-  -v "$YT_COOKIES_FILE_HOST:$YT_COOKIES_FILE_CONTAINER:ro" \
+  -v "$YT_COOKIES_FILE_STAGED:$YT_COOKIES_FILE_CONTAINER" \
   -v "$CONFIG_DIR:/spooty/backend/config" \
   "$IMAGE"
 

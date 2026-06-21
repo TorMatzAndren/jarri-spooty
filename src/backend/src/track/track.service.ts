@@ -200,7 +200,18 @@ export class TrackService {
     };
   }
 
-  private rejectCurrentYoutubeCandidate(
+  private isPermanentYoutubeCandidateRejection(
+    reason: RejectionReason,
+  ): boolean {
+    return [
+      'YOUTUBE_VIDEO_UNAVAILABLE',
+      'YOUTUBE_AGE_GATED',
+      'YOUTUBE_NO_FORMATS',
+      'YOUTUBE_PRIVATE_VIDEO',
+    ].includes(reason.rejectionClass);
+  }
+
+  private recordCurrentYoutubeCandidateFailure(
     track: TrackEntity,
     reason: RejectionReason,
   ): {
@@ -212,7 +223,10 @@ export class TrackService {
     const rejectedCandidate = this.buildRejectedYoutubeCandidate(track, reason);
 
     if (rejectedCandidate) {
-      if (!rejectedUrls.includes(rejectedCandidate.url)) {
+      if (
+        this.isPermanentYoutubeCandidateRejection(reason) &&
+        !rejectedUrls.includes(rejectedCandidate.url)
+      ) {
         rejectedUrls.push(rejectedCandidate.url);
       }
 
@@ -299,11 +313,6 @@ export class TrackService {
       return;
     }
 
-    const rejectedCandidateFields = this.rejectCurrentYoutubeCandidate(track, {
-      rejectionClass: 'MANUAL_RETRY',
-      rejectionSummary: 'Rejected by manual retry',
-    });
-
     await this.update(id, {
       ...track,
       youtubeUrl: null,
@@ -311,7 +320,9 @@ export class TrackService {
       selectedYoutubeAuthor: null,
       selectedYoutubeScore: null,
       selectedYoutubeReason: null,
-      ...rejectedCandidateFields,
+      rejectedYoutubeUrls: track.rejectedYoutubeUrls || JSON.stringify([]),
+      rejectedYoutubeCandidatesJson:
+        track.rejectedYoutubeCandidatesJson || JSON.stringify([]),
       downloadAttemptCount: 0,
       error: null,
       status: TrackStatusEnum.New,
@@ -476,7 +487,7 @@ export class TrackService {
     const nextAttemptCount = (track.downloadAttemptCount || 0) + 1;
     const maxAttempts = this.getMaxDownloadAttempts();
     const rejectedCandidateFields = error
-      ? this.rejectCurrentYoutubeCandidate(track, this.classifyRejection(error))
+      ? this.recordCurrentYoutubeCandidateFailure(track, this.classifyRejection(error))
       : {
           rejectedYoutubeUrls: this.stringifyRejectedYoutubeUrls(
             this.parseRejectedYoutubeUrls(track),
