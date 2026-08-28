@@ -7,3 +7,8 @@
 test-downloads/
 
 spooty-config
+
+# Local runtime credentials and staged secrets
+/config/spotify-user-token.json
+/spooty-runtime-secrets/
+/fresh-youtube.cookies.txt

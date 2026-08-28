@@ -33,11 +33,12 @@ fi
 
 echo "== Preparing runtime directories =="
 mkdir -p "$DOWNLOADS" "$CONFIG_DIR" "$RUNTIME_SECRETS_DIR"
+chmod 0700 "$RUNTIME_SECRETS_DIR"
 
 if [[ -f "$YT_COOKIES_FILE_HOST" ]]; then
   echo "== Staging YouTube cookies =="
   cp "$YT_COOKIES_FILE_HOST" "$YT_COOKIES_FILE_STAGED"
-  chmod 0666 "$YT_COOKIES_FILE_STAGED"
+  chmod 0644 "$YT_COOKIES_FILE_STAGED"
 else
   echo "ERROR: YouTube cookies file not found: $YT_COOKIES_FILE_HOST" >&2
   exit 1
@@ -65,7 +66,7 @@ $DOCKER run -d \
   -e YT_DOWNLOAD_FALLBACK_ATTEMPTS=3 \
   -e YT_COOKIES_FILE="$YT_COOKIES_FILE_CONTAINER" \
   -v "$DOWNLOADS:/spooty/backend/downloads" \
-  -v "$YT_COOKIES_FILE_STAGED:$YT_COOKIES_FILE_CONTAINER" \
+  -v "$YT_COOKIES_FILE_STAGED:$YT_COOKIES_FILE_CONTAINER:ro" \
   -v "$CONFIG_DIR:/spooty/backend/config" \
   "$IMAGE"
 
