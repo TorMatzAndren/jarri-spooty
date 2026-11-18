@@ -349,6 +349,7 @@ export class PlaylistService {
   async checkActivePlaylists(): Promise<void> {
     // Only check actual playlists (not individual tracks) that are subscribed
     const activePlaylists = await this.findAll(
+      { tracks: true },
       { active: true, isTrack: false },
     );
     for (const playlist of activePlaylists) {
