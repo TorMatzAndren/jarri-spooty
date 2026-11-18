@@ -8,6 +8,10 @@ This project follows a practical chronological changelog rather than autogenerat
 
 # Unreleased
 
+## Fixed
+
+- Fixed hourly subscribed-playlist synchronization failing because playlist filters were passed as TypeORM relations instead of query conditions.
+
 ## Added
 
 - Added Workspace tabs for Intake, Archive, and Diagnostics.
